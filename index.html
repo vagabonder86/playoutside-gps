@@ -190,6 +190,9 @@
 
     var currentProgId = null;
     var currentProgName = '백련산 생태 탐험 2026';
+    var currentProgMode = null;   // 운영 방식 (geocaching/orienteering/hiking)
+    var gpxRoute = [];            // 하이킹 GPX 경로 좌표 [{lat,lng},...]
+    var gpxPolyline = null;       // 지도 폴리라인 인스턴스
     var userName = '';
     var userPhone = '';
     var userId = '';
@@ -212,6 +215,9 @@
       if (!progDoc || !progDoc.exists) { enableLogin(); return; }
       var prog = progDoc.data();
       currentProgName = prog.name || currentProgName;
+      currentProgMode = prog.mode || null;
+      // 하이킹 GPX 경로 로드
+      gpxRoute = (prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
       if (prog.cps && prog.cps.length > 0) {
         checkpoints = prog.cps.map(function(cp) {
           return {
@@ -431,25 +437,55 @@
 
     // ── 지도 초기화 ───────────────────────────────────────
     function initMap() {
-      var centerLat = checkpoints.length > 0 ? checkpoints[0].lat : 37.5954;
-      var centerLng = checkpoints.length > 0 ? checkpoints[0].lng : 126.9349;
+      // GPX 경로가 있으면 첫 포인트를 중심으로, 없으면 첫 CP
+      var centerLat = checkpoints.length > 0 ? checkpoints[0].lat
+                    : (gpxRoute.length > 0 ? gpxRoute[0].lat : 37.5954);
+      var centerLng = checkpoints.length > 0 ? checkpoints[0].lng
+                    : (gpxRoute.length > 0 ? gpxRoute[0].lng : 126.9349);
       map = new naver.maps.Map('map', {
         center: new naver.maps.LatLng(centerLat, centerLng),
-        zoom: 16
+        zoom: 15
       });
+
+      // 하이킹 모드 & GPX 경로 존재 시 폴리라인 그리기
+      if (currentProgMode === 'hiking' && gpxRoute.length > 0) {
+        drawGPXPolyline();
+      }
+
       checkpoints.forEach(function(cp, i) {
         // 출발·도착 같은 위치: 도착 마커는 숨기고 출발 마커로 대체
         var hide = startEndSame && cp.type === 'end';
         var marker = new naver.maps.Marker({
           position: new naver.maps.LatLng(cp.lat, cp.lng),
           map: hide ? null : map,
-          icon: makeIcon(cp, i)
+          icon: makeIcon(cp, i),
+          zIndex: 10  // CP 마커가 경로 위에 표시
         });
         (function(idx) {
           naver.maps.Event.addListener(marker, 'click', function() { openMission(idx); });
         })(i);
         markers.push(marker);
       });
+    }
+
+    // ── GPX 경로 폴리라인 그리기 ─────────────────────────
+    function drawGPXPolyline() {
+      if (gpxPolyline) { gpxPolyline.setMap(null); gpxPolyline = null; }
+      if (!gpxRoute || gpxRoute.length === 0 || !map) return;
+      var path = gpxRoute.map(function(p) { return new naver.maps.LatLng(p.lat, p.lng); });
+      gpxPolyline = new naver.maps.Polyline({
+        map: map,
+        path: path,
+        strokeColor: '#FF6B35',
+        strokeWeight: 5,
+        strokeOpacity: 0.8,
+        strokeStyle: 'solid',
+        zIndex: 1
+      });
+      // 전체 경로가 보이도록 bounds 맞춤
+      var bounds = new naver.maps.LatLngBounds();
+      path.forEach(function(p) { bounds.extend(p); });
+      map.fitBounds(bounds, { top:60, right:20, bottom:60, left:20 });
     }
 
     // ── 지도 타입 전환 ────────────────────────────────────

@@ -580,6 +580,9 @@
   document.getElementById('add-cp-btn').addEventListener('click', addCPFromPanel);
   document.getElementById('save-cp-btn').addEventListener('click', saveCP);
   document.getElementById('delete-cp-btn').addEventListener('click', deleteCP);
+  document.getElementById('cp-type-input').addEventListener('change', function() {
+    updateNameInputForType(this.value);
+  });
   document.getElementById('save-all-btn').addEventListener('click', saveCPsToProgram);
   document.getElementById('cancel-delete-btn').addEventListener('click', function() {
     document.getElementById('delete-modal').style.display = 'none';
@@ -892,40 +895,78 @@
     });
   }
 
+  function updateNameInputForType(type) {
+    var nameInput = document.getElementById('cp-name-input');
+    if (type === 'start') {
+      nameInput.value = '출발 지점';
+      nameInput.disabled = true;
+      nameInput.style.background = '#f5f5f0';
+      nameInput.style.color = '#aaa';
+    } else if (type === 'end') {
+      nameInput.value = '도착 지점';
+      nameInput.disabled = true;
+      nameInput.style.background = '#f5f5f0';
+      nameInput.style.color = '#aaa';
+    } else {
+      nameInput.disabled = false;
+      nameInput.style.background = '';
+      nameInput.style.color = '';
+    }
+  }
+
   function selectCP(i) {
     selectedCPIndex = i;
     var cp = cpData[i];
     document.getElementById('cp-edit-form').style.display = 'block';
     document.getElementById('cp-form-title').textContent = cp.name + ' 편집';
-    document.getElementById('cp-name-input').value = cp.name;
     document.getElementById('cp-mission-input').value = cp.mission || '';
     document.getElementById('cp-answer-input').value = cp.answer || '';
     document.getElementById('cp-lat-input').value = cp.lat;
     document.getElementById('cp-lng-input').value = cp.lng;
     document.getElementById('cp-type-input').value = cp.type || 'normal';
+    // 이름 필드: start/end는 고정값 표시 + 비활성화
+    document.getElementById('cp-name-input').value = cp.name;
+    updateNameInputForType(cp.type || 'normal');
     renderCPListAdmin();
     adminMap.setCenter(new naver.maps.LatLng(cp.lat, cp.lng));
   }
 
   function saveCP() {
     if (selectedCPIndex === null) return;
-    cpData[selectedCPIndex].name    = document.getElementById('cp-name-input').value.trim() || cpData[selectedCPIndex].id;
+    cpData[selectedCPIndex].type    = document.getElementById('cp-type-input').value;
     cpData[selectedCPIndex].mission = document.getElementById('cp-mission-input').value.trim();
     cpData[selectedCPIndex].answer  = document.getElementById('cp-answer-input').value.trim();
     cpData[selectedCPIndex].lat     = parseFloat(document.getElementById('cp-lat-input').value);
     cpData[selectedCPIndex].lng     = parseFloat(document.getElementById('cp-lng-input').value);
-    cpData[selectedCPIndex].type    = document.getElementById('cp-type-input').value;
+
+    // 타입에 따라 id·name 자동 고정
     if (cpData[selectedCPIndex].type === 'start') {
-      cpData[selectedCPIndex].id = 'S';
+      cpData[selectedCPIndex].id   = 'S';
+      cpData[selectedCPIndex].name = '출발 지점';
     } else if (cpData[selectedCPIndex].type === 'end') {
-      cpData[selectedCPIndex].id = 'F';
+      cpData[selectedCPIndex].id   = 'F';
+      cpData[selectedCPIndex].name = '도착 지점';
     } else {
-      var num = 1;
-      cpData.forEach(function(cp) { if (cp.type === 'normal') { cp.id = 'CP' + num; num++; } });
+      cpData[selectedCPIndex].name = document.getElementById('cp-name-input').value.trim();
     }
+    // 일반 CP 번호 전체 재정렬
+    reorderNormalCPs();
     renderAdminMarkers();
     renderCPListAdmin();
     alert('CP가 저장됐어요!');
+  }
+
+  // 일반 CP 번호 재정렬 (start/end 제외)
+  function reorderNormalCPs() {
+    var num = 1;
+    cpData.forEach(function(cp) {
+      if (cp.type === 'normal') {
+        cp.id = 'CP' + num;
+        // 이름이 'CP숫자' 패턴이면 번호도 같이 업데이트
+        if (/^CP\d+$/.test(cp.name)) cp.name = 'CP' + num;
+        num++;
+      }
+    });
   }
 
   function deleteCP() {

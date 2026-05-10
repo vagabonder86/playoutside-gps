@@ -266,8 +266,19 @@
       <label>이름</label>
       <input id="input-name" type="text" placeholder="홍길동">
       <label>전화번호 뒷자리 4자리</label>
-      <input id="input-phone" type="text" placeholder="1234" maxlength="4">
+      <input id="input-phone" type="text" placeholder="1234" maxlength="4" inputmode="numeric">
       <button class="btn-green" id="login-btn">시작하기</button>
+    </div>
+  </div>
+
+  <!-- 중복 참가자 확인 다이얼로그 -->
+  <div id="dup-overlay" class="overlay" style="display:none">
+    <div class="overlay-box">
+      <div style="font-size:32px;text-align:center;margin-bottom:8px" id="dup-icon">⚠️</div>
+      <h2 id="dup-title">이미 등록된 참가자</h2>
+      <p id="dup-desc"></p>
+      <button class="btn-green" id="dup-continue-btn" style="margin-top:4px">이전 기록 이어서 진행</button>
+      <button class="btn-gray" id="dup-back-btn">다시 입력하기</button>
     </div>
   </div>
 
@@ -672,7 +683,37 @@
         userRef.get().then(function(doc) {
           btn.disabled = false;
           btn.textContent = '시작하기';
-          startApp(doc.exists ? doc.data() : null);
+          if (doc.exists && doc.data().status && doc.data().status !== 'not-started') {
+            var data = doc.data();
+            // 이미 등록된 참가자 → 확인 다이얼로그 표시
+            var dupOverlay = document.getElementById('dup-overlay');
+            var dupIcon    = document.getElementById('dup-icon');
+            var dupTitle   = document.getElementById('dup-title');
+            var dupDesc    = document.getElementById('dup-desc');
+            if (data.status === 'finished') {
+              dupIcon.textContent  = '🏆';
+              dupTitle.textContent = '이미 완주한 참가자예요!';
+              dupDesc.textContent  = name + '님은 이미 이 프로그램을 완주했어요. 기록을 다시 확인하시겠어요?';
+              document.getElementById('dup-continue-btn').textContent = '완주 기록 보기';
+            } else {
+              dupIcon.textContent  = '🔄';
+              dupTitle.textContent = '이미 등록된 참가자예요';
+              dupDesc.textContent  = name + '님의 진행 기록이 있어요 (완료 CP ' + (data.completedCPs ? data.completedCPs.length : 0) + '개). 이어서 진행할까요?';
+              document.getElementById('dup-continue-btn').textContent = '이전 기록 이어서 진행';
+            }
+            document.getElementById('login-overlay').style.display = 'none';
+            dupOverlay.style.display = 'flex';
+            document.getElementById('dup-continue-btn').onclick = function() {
+              dupOverlay.style.display = 'none';
+              startApp(data);
+            };
+            document.getElementById('dup-back-btn').onclick = function() {
+              dupOverlay.style.display = 'none';
+              document.getElementById('login-overlay').style.display = 'flex';
+            };
+          } else {
+            startApp(doc.exists ? doc.data() : null);
+          }
         }).catch(function() {
           btn.disabled = false;
           btn.textContent = '시작하기';

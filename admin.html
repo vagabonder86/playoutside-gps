@@ -291,6 +291,12 @@
           <!-- 하이킹 설정 -->
           <div id="settings-hiking" class="mode-settings" style="display:none">
             <div style="font-size:12px;font-weight:500;color:#D85A30;margin-bottom:12px">🥾 하이킹 설정</div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400">
+                <input type="checkbox" id="hike-no-timelimit" style="width:16px;height:16px;accent-color:#1D9E75;cursor:pointer">
+                <span>제한시간 없음 <span style="color:#aaa;font-size:11px">(하이킹 권장)</span></span>
+              </label>
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label>인솔자 위치 공유</label>
@@ -342,6 +348,18 @@
             <div id="admin-map"></div>
           </div>
           <div class="cp-panel">
+            <!-- GPX 경로 패널 (하이킹 모드만 표시) -->
+            <div class="cp-panel-card" id="gpx-panel" style="display:none">
+              <div class="cp-panel-title">🗺️ GPX 경로</div>
+              <input type="file" id="gpx-input" accept=".gpx" style="display:none">
+              <button class="btn btn-sm" id="gpx-upload-btn" style="width:100%;justify-content:center">
+                <i class="ti ti-upload"></i> GPX 파일 불러오기
+              </button>
+              <div id="gpx-info-panel" style="display:none;font-size:12px;color:#2c2c2a;margin-top:8px;line-height:1.8;padding:8px 10px;background:#f9f9f6;border-radius:6px;border:0.5px solid #e0e0d8"></div>
+              <button class="btn btn-sm btn-danger" id="gpx-clear-btn" style="width:100%;justify-content:center;margin-top:6px;display:none">
+                <i class="ti ti-trash"></i> 경로 지우기
+              </button>
+            </div>
             <div class="cp-panel-card">
               <div class="cp-panel-title">체크포인트 목록</div>
               <div id="cp-list-admin"></div>
@@ -559,6 +577,8 @@
   var monitorMarkers = [];
   var modeBadge = { geocaching:'badge-green', orienteering:'badge-purple', hiking:'badge-amber' };
   var modeNames = { geocaching:'지오캐싱', orienteering:'오리엔티어링', hiking:'하이킹' };
+  var gpxPolyline = null;  // 관리자 지도 GPX 경로 폴리라인
+  var gpxRoute = [];       // GPX 좌표 배열 [{lat, lng}, ...]
 
   // 실시간 참가자 데이터 (Firestore onSnapshot)
   var liveParticipants = [];
@@ -633,6 +653,7 @@
       };
     } else if (selectedMode === 'hiking') {
       return {
+        noTimeLimit: document.getElementById('hike-no-timelimit').checked,
         leader: document.getElementById('hike-leader').value,
         share: document.getElementById('hike-share').value,
         radius: document.getElementById('hike-radius').value,
@@ -672,6 +693,22 @@
       cpData = prog && prog.cps ? JSON.parse(JSON.stringify(prog.cps)) : [];
       selectedCPIndex = null;
       document.getElementById('cp-edit-form').style.display = 'none';
+      // 하이킹 모드면 GPX 패널 표시
+      var isHikingMode = prog && prog.mode === 'hiking';
+      document.getElementById('gpx-panel').style.display = isHikingMode ? 'block' : 'none';
+      // 저장된 GPX 경로 로드
+      gpxRoute = (prog && prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
+      if (gpxRoute.length > 0) {
+        document.getElementById('gpx-info-panel').style.display = 'block';
+        var dist = calcGPXDistance(gpxRoute);
+        document.getElementById('gpx-info-panel').innerHTML =
+          '📍 <b>' + gpxRoute.length + '</b>개 포인트 &nbsp;·&nbsp; 📏 총 <b>' +
+          (dist >= 1000 ? (dist/1000).toFixed(1) + 'km' : Math.round(dist) + 'm') + '</b>';
+        document.getElementById('gpx-clear-btn').style.display = 'block';
+      } else {
+        document.getElementById('gpx-info-panel').style.display = 'none';
+        document.getElementById('gpx-clear-btn').style.display = 'none';
+      }
       setTimeout(initAdminMap, 150);
     } else if (name === 'participants') {
       if (!progId && programs.length > 0) { progId = programs[0].id; }
@@ -694,6 +731,12 @@
     ['prog-name','prog-location','prog-date','prog-time','prog-participants','prog-manager','prog-desc'].forEach(function(id) {
       document.getElementById(id).value = '';
     });
+    // 제한시간 필드 초기화
+    var timeInput = document.getElementById('prog-time');
+    timeInput.disabled = false;
+    timeInput.placeholder = '90';
+    timeInput.style.color = '';
+    document.getElementById('hike-no-timelimit').checked = false;
     selectedMode = 'geocaching';
     document.querySelectorAll('.mode-option').forEach(function(m, i) { m.classList.toggle('selected', i === 0); });
     showModeSettings('geocaching');
@@ -753,7 +796,7 @@
         '</div>' +
         '<div class="prog-card-body">' +
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.cps?prog.cps.filter(function(c){return c.type==='normal'}).length:0) + '</div><div class="prog-stat-label">일반 CP</div></div>' +
-          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.time||'-') + '</div><div class="prog-stat-label">제한(분)</div></div>' +
+          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.modeSettings && prog.modeSettings.noTimeLimit ? '∞' : (prog.time||'-')) + '</div><div class="prog-stat-label">제한(분)</div></div>' +
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.participants||'-') + '</div><div class="prog-stat-label">참가자</div></div>' +
         '</div>' +
         '<div class="prog-card-footer" style="flex-wrap:wrap;gap:6px">' +
@@ -813,18 +856,154 @@
     });
   }
 
+  // ── GPX 파싱 / 경로 그리기 ──────────────────────────
+  function parseGPX(text) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(text, 'application/xml');
+    var points = [];
+    // <trkpt> 우선, 없으면 <wpt> 사용
+    var nodes = doc.querySelectorAll('trkpt');
+    if (nodes.length === 0) nodes = doc.querySelectorAll('wpt');
+    nodes.forEach(function(pt) {
+      var lat = parseFloat(pt.getAttribute('lat'));
+      var lng = parseFloat(pt.getAttribute('lon'));
+      if (!isNaN(lat) && !isNaN(lng)) points.push({ lat: lat, lng: lng });
+    });
+    // 포인트가 너무 많으면 최대 600개로 다운샘플
+    if (points.length > 600) {
+      var step = Math.ceil(points.length / 600);
+      var sampled = [];
+      for (var i = 0; i < points.length; i += step) sampled.push(points[i]);
+      var last = points[points.length - 1];
+      if (sampled[sampled.length - 1] !== last) sampled.push(last);
+      points = sampled;
+    }
+    return points;
+  }
+
+  function calcGPXDistance(points) {
+    var total = 0;
+    for (var i = 1; i < points.length; i++) {
+      var R = 6371000;
+      var dLat = (points[i].lat - points[i-1].lat) * Math.PI / 180;
+      var dLng = (points[i].lng - points[i-1].lng) * Math.PI / 180;
+      var lat1 = points[i-1].lat * Math.PI / 180;
+      var lat2 = points[i].lat * Math.PI / 180;
+      var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)*Math.sin(dLng/2);
+      total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    return total;
+  }
+
+  function drawGPXPolyline(points, fitBounds) {
+    if (gpxPolyline) { gpxPolyline.setMap(null); gpxPolyline = null; }
+    if (!points || points.length === 0 || !adminMap) return;
+    var path = points.map(function(p) { return new naver.maps.LatLng(p.lat, p.lng); });
+    gpxPolyline = new naver.maps.Polyline({
+      map: adminMap,
+      path: path,
+      strokeColor: '#FF6B35',
+      strokeWeight: 5,
+      strokeOpacity: 0.85,
+      strokeStyle: 'solid'
+    });
+    if (fitBounds !== false && path.length > 0) {
+      var bounds = new naver.maps.LatLngBounds();
+      path.forEach(function(p) { bounds.extend(p); });
+      adminMap.fitBounds(bounds, { top:50, right:50, bottom:50, left:50 });
+    }
+  }
+
+  // GPX 업로드 버튼
+  document.getElementById('gpx-upload-btn').addEventListener('click', function() {
+    document.getElementById('gpx-input').click();
+  });
+
+  document.getElementById('gpx-input').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var btn = document.getElementById('gpx-upload-btn');
+    btn.textContent = '⏳ 불러오는 중...';
+    btn.disabled = true;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var points = parseGPX(ev.target.result);
+      btn.innerHTML = '<i class="ti ti-upload"></i> GPX 파일 불러오기';
+      btn.disabled = false;
+      if (points.length === 0) {
+        alert('GPX 파일에서 경로를 찾을 수 없습니다.\n<trkpt> 또는 <wpt> 태그가 포함된 파일인지 확인해주세요.');
+        e.target.value = '';
+        return;
+      }
+      gpxRoute = points;
+      drawGPXPolyline(points, true);
+      var dist = calcGPXDistance(points);
+      var infoEl = document.getElementById('gpx-info-panel');
+      infoEl.style.display = 'block';
+      infoEl.innerHTML =
+        '📍 <b>' + points.length + '</b>개 포인트 &nbsp;·&nbsp; 📏 <b>' +
+        (dist >= 1000 ? (dist/1000).toFixed(1) + 'km' : Math.round(dist) + 'm') + '</b><br>' +
+        '<span style="color:#888;font-size:11px">' + file.name + '</span>';
+      document.getElementById('gpx-clear-btn').style.display = 'block';
+      // Firestore에 경로 저장
+      if (currentProgId) {
+        db.collection('programs').doc(currentProgId).update({ gpxRoute: gpxRoute }).catch(function(err) {
+          console.error('GPX 저장 오류:', err);
+        });
+      }
+    };
+    reader.onerror = function() {
+      btn.innerHTML = '<i class="ti ti-upload"></i> GPX 파일 불러오기';
+      btn.disabled = false;
+      alert('파일을 읽을 수 없습니다.');
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('gpx-clear-btn').addEventListener('click', function() {
+    gpxRoute = [];
+    if (gpxPolyline) { gpxPolyline.setMap(null); gpxPolyline = null; }
+    document.getElementById('gpx-info-panel').style.display = 'none';
+    document.getElementById('gpx-clear-btn').style.display = 'none';
+    document.getElementById('gpx-input').value = '';
+    if (currentProgId) {
+      db.collection('programs').doc(currentProgId).update({ gpxRoute: [] }).catch(console.error);
+    }
+  });
+
+  // "제한시간 없음" 체크박스 핸들러
+  document.getElementById('hike-no-timelimit').addEventListener('change', function() {
+    var timeInput = document.getElementById('prog-time');
+    if (this.checked) {
+      timeInput.disabled = true;
+      timeInput.value = '';
+      timeInput.placeholder = '제한시간 없음';
+      timeInput.style.color = '#aaa';
+    } else {
+      timeInput.disabled = false;
+      timeInput.placeholder = '90';
+      timeInput.style.color = '';
+    }
+  });
+
   // ── 관리자 지도 ───────────────────────────────────────
   function initAdminMap() {
     if (adminMap) { adminMap = null; }
+    gpxPolyline = null; // 지도 재생성 시 초기화
+    // GPX 경로가 있으면 중심을 GPX 첫 포인트로
     var center = cpData.length > 0
       ? new naver.maps.LatLng(cpData[0].lat, cpData[0].lng)
-      : new naver.maps.LatLng(37.5954, 126.9349);
-    adminMap = new naver.maps.Map('admin-map', { center: center, zoom: 16 });
+      : (gpxRoute.length > 0
+          ? new naver.maps.LatLng(gpxRoute[0].lat, gpxRoute[0].lng)
+          : new naver.maps.LatLng(37.5954, 126.9349));
+    adminMap = new naver.maps.Map('admin-map', { center: center, zoom: 15 });
     isAdminSatellite = false;
     document.getElementById('admin-map-type-btn').innerHTML = '🛰️ 위성';
     initCoordInputs();
     renderAdminMarkers();
     renderCPListAdmin();
+    // 기존 GPX 경로 그리기
+    if (gpxRoute.length > 0) drawGPXPolyline(gpxRoute, false);
     naver.maps.Event.addListener(adminMap, 'click', function(e) {
       var lat = parseFloat(e.coord.lat().toFixed(6));
       var lng = parseFloat(e.coord.lng().toFixed(6));

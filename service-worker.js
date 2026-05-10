@@ -1,11 +1,12 @@
-const CACHE_NAME = 'playoutside-gps-v1';
+const CACHE_NAME = 'playoutside-gps-v2';
+// 상대 경로로 등록 (커스텀 도메인/서브패스 모두 호환)
 const ASSETS = [
-  '/playoutside-gps/',
-  '/playoutside-gps/index.html',
-  '/playoutside-gps/logo.png',
-  '/playoutside-gps/icon-192.png',
-  '/playoutside-gps/icon-512.png',
-  '/playoutside-gps/manifest.json'
+  './',
+  './index.html',
+  './logo.png',
+  './icon-192.png',
+  './icon-512.png',
+  './manifest.json'
 ];
 
 // 설치 시 핵심 파일 캐시

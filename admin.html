@@ -1529,10 +1529,10 @@
     } else {
       monitorMap = new naver.maps.Map('monitor-map', { center: new naver.maps.LatLng(centerLat, centerLng), zoom: 16 });
     }
-    // CP 마커 표시
+    // CP 마커 표시 (markers 배열에 push해서 누수 방지)
     if (prog && prog.cps) {
       prog.cps.forEach(function(cp) {
-        new naver.maps.Marker({
+        var m = new naver.maps.Marker({
           position: new naver.maps.LatLng(cp.lat, cp.lng),
           map: monitorMap,
           icon: {
@@ -1540,6 +1540,7 @@
             anchor: new naver.maps.Point(11, 11)
           }
         });
+        monitorMarkers.push(m);
       });
     }
     // 참가자 마커는 liveParticipants로 렌더

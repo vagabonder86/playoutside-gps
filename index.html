@@ -624,8 +624,10 @@
       var now = Date.now();
       if (now - lastLocationUpdate < 5000) return;
       lastLocationUpdate = now;
+      // serverTimestamp()는 맵 필드 내부에서 사용 불가 → top-level 필드로 분리
       db.collection('participants').doc(currentProgId).collection('users').doc(userId).update({
-        location: { lat: lat, lng: lng, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+        location: { lat: lat, lng: lng, updatedAt: Date.now() },
+        locationUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch(function(err) {
         console.error('위치 업데이트 오류:', err);
       });
@@ -688,12 +690,7 @@
       map.fitBounds(bounds, { top:60, right:20, bottom:60, left:20 });
     }
 
-    // ── 지도 타입 전환 ────────────────────────────────────
-    function toggleMapType() {
-      isSatellite = !isSatellite;
-      map.setMapTypeId(isSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
-      document.getElementById('map-type-btn').textContent = isSatellite ? '🗺️ 일반' : '🛰️ 위성';
-    }
+
 
     // ── 마커 아이콘 ───────────────────────────────────────
     function makeIcon(cp, i) {
@@ -1172,16 +1169,15 @@
     // ── 지도 타입 (하단 바) ────────────────────────────────
     function setMapType(type) {
       isSatellite = (type === 'satellite');
-      map.setMapTypeId(isSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
+      // 활성 상태는 항상 토글
       document.getElementById('bb-normal').classList.toggle('active', !isSatellite);
       document.getElementById('bb-satellite').classList.toggle('active', isSatellite);
+      // map 미초기화(로그인 전) 방어
+      if (!map) return;
+      map.setMapTypeId(isSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
       // 지도 화면으로 전환
       showTab('map');
     }
-
-    // ── 줌 ─────────────────────────────────────────────────
-    function zoomIn()  { if (map) map.setZoom(map.getZoom() + 1); }
-    function zoomOut() { if (map) map.setZoom(map.getZoom() - 1); }
 
   </script>
 

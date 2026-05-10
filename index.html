@@ -71,19 +71,77 @@
     .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 12px; border: 0.5px solid #e0e0d8; }
     .card h2 { font-size: 15px; font-weight: 500; color: #1D9E75; margin-bottom: 10px; }
     .card p { font-size: 13px; line-height: 1.7; color: #5f5e5a; }
-    .score-box { background: #E1F5EE; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-    .score-label { font-size: 12px; color: #0F6E56; }
-    .score-value { font-size: 22px; font-weight: 500; color: #085041; }
-    .cp-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 0.5px solid #f0efe8; cursor: pointer; }
-    .cp-item:last-child { border-bottom: none; }
-    .cp-badge { width: 30px; height: 30px; border-radius: 50%; background: #EEEDFE; color: #534AB7; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; }
-    .cp-info { flex: 1; }
-    .cp-name { font-size: 13px; font-weight: 500; }
-    .cp-desc { font-size: 12px; color: #888; margin-top: 2px; }
-    .cp-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
-    .status-lock { background: #f0efe8; color: #aaa; }
+    /* ── 기록 화면 ──────────────────────────────────────── */
+    #screen-mission { background: #f5f5f0; }
+
+    /* 상단 헤더 카드 */
+    .rec-header {
+      background: #085041; color: white;
+      padding: 20px 20px 28px;
+      position: relative; overflow: hidden;
+    }
+    .rec-header::after {
+      content: ''; position: absolute;
+      bottom: -30px; left: -20px; right: -20px;
+      height: 60px; background: #f5f5f0;
+      border-radius: 50% 50% 0 0 / 60px;
+    }
+    .rec-logo {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+    }
+    .rec-logo-mark {
+      width: 36px; height: 36px; background: #5DCAA5;
+      border-radius: 10px; display: flex; align-items: center;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .rec-logo-text { font-size: 13px; font-weight: 600; opacity: 0.95; letter-spacing: -0.01em; }
+    .rec-logo-sub  { font-size: 11px; opacity: 0.55; margin-top: 1px; }
+    .rec-prog-name { font-size: 17px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.02em; }
+    .rec-user-info { font-size: 12px; opacity: 0.6; }
+
+    /* 진행 요약 카드 */
+    .rec-summary {
+      background: white; border-radius: 16px;
+      margin: 0 16px; padding: 18px 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      position: relative; z-index: 1;
+    }
+    .rec-summary-row { display: flex; gap: 0; }
+    .rec-summary-stat { flex: 1; text-align: center; }
+    .rec-summary-stat + .rec-summary-stat { border-left: 0.5px solid #f0efe8; }
+    .rec-summary-val { font-size: 24px; font-weight: 700; color: #085041; line-height: 1; }
+    .rec-summary-lbl { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+    /* 진행 바 */
+    .rec-prog-bar { height: 4px; background: #f0efe8; border-radius: 2px; margin: 16px 0 0; overflow: hidden; }
+    .rec-prog-bar-fill { height: 100%; background: linear-gradient(90deg, #1D9E75, #5DCAA5); border-radius: 2px; transition: width .6s ease; width: 0%; }
+
+    /* CP 리스트 */
+    .rec-section { padding: 20px 16px 0; }
+    .rec-section-title { font-size: 11px; font-weight: 600; color: #aaa; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
+    .cp-item {
+      display: flex; align-items: center; gap: 12px;
+      background: white; border-radius: 12px;
+      padding: 13px 14px; margin-bottom: 8px;
+      cursor: pointer; border: 1px solid transparent;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .cp-item:active { box-shadow: 0 0 0 3px rgba(29,158,117,0.12); border-color: #1D9E75; }
+    .cp-item.done { background: #f9fdf9; }
+    .cp-badge {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: #EEEDFE; color: #534AB7;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .cp-info { flex: 1; min-width: 0; }
+    .cp-name { font-size: 13px; font-weight: 600; color: #1a1a18; }
+    .cp-desc { font-size: 11px; color: #aaa; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cp-status { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; flex-shrink: 0; }
+    .status-lock { background: #f0efe8; color: #bbb; }
     .status-open { background: #E1F5EE; color: #0F6E56; }
-    .status-done { background: #EEEDFE; color: #534AB7; }
+    .status-done { background: #085041; color: white; }
     #gps-alert { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 800; background: #1D9E75; color: white; padding: 14px 24px; border-radius: 50px; font-size: 14px; font-weight: 500; display: none; text-align: center; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 999; }
     .overlay-box { background: white; border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 360px; }
@@ -233,20 +291,44 @@
 
   <!-- 미션 화면 -->
   <div id="screen-mission" class="screen">
-    <div class="container">
-      <div class="score-box">
-        <span class="score-label">완료한 포인트</span>
-        <span class="score-value"><span id="score-current">0</span> / <span id="score-total">0</span></span>
+    <!-- 상단 헤더 -->
+    <div class="rec-header">
+      <div class="rec-logo">
+        <div class="rec-logo-mark">🌿</div>
+        <div>
+          <div class="rec-logo-text">플레이아웃사이드</div>
+          <div class="rec-logo-sub">PLAY OUTSIDE GPS MISSION</div>
+        </div>
       </div>
-      <div class="card">
-        <h2>미션 안내</h2>
-        <p>출발 지점에 도착하면 GPS가 자동으로 인증합니다. 이후 원하는 순서로 CP를 방문하고 미션을 완료하세요. 모든 CP 완료 후 도착 지점으로 이동하세요!</p>
-      </div>
-      <div class="card">
-        <h2>체크포인트</h2>
-        <div id="cp-list"></div>
-      </div>
+      <div class="rec-prog-name" id="rec-prog-name">프로그램 이름</div>
+      <div class="rec-user-info" id="rec-user-info">참가자 정보</div>
     </div>
+
+    <!-- 진행 요약 카드 -->
+    <div class="rec-summary">
+      <div class="rec-summary-row">
+        <div class="rec-summary-stat">
+          <div class="rec-summary-val"><span id="score-current">0</span><span style="font-size:14px;color:#aaa;font-weight:400"> / </span><span id="score-total" style="font-size:16px;color:#aaa;font-weight:500">0</span></div>
+          <div class="rec-summary-lbl">완료 CP</div>
+        </div>
+        <div class="rec-summary-stat">
+          <div class="rec-summary-val" id="rec-elapsed">00:00</div>
+          <div class="rec-summary-lbl">경과 시간</div>
+        </div>
+        <div class="rec-summary-stat">
+          <div class="rec-summary-val" id="rec-status-val">대기</div>
+          <div class="rec-summary-lbl">상태</div>
+        </div>
+      </div>
+      <div class="rec-prog-bar"><div class="rec-prog-bar-fill" id="rec-prog-bar-fill"></div></div>
+    </div>
+
+    <!-- CP 목록 -->
+    <div class="rec-section">
+      <div class="rec-section-title">체크포인트</div>
+      <div id="cp-list"></div>
+    </div>
+    <div style="height:80px"></div>
   </div>
 
   <script>
@@ -425,6 +507,9 @@
         document.getElementById('header-sub').textContent = name + '님 · ' + currentProgName;
         document.getElementById('login-overlay').style.display = 'none';
         document.getElementById('score-total').textContent = totalNormalCPs;
+        // 기록 화면 헤더 업데이트
+        document.getElementById('rec-prog-name').textContent = currentProgName;
+        document.getElementById('rec-user-info').textContent = name + '님 · ' + phone;
 
         if (existingData && existingData.status !== 'not-started') {
           // ── 기존 진행상황 복원 ──────────────────────────
@@ -875,6 +960,17 @@
       }).length;
       document.getElementById('score-current').textContent = completedNormal;
       document.getElementById('score-total').textContent = totalNormalCPs;
+      // 기록 화면 진행바 + 상태
+      var pct = totalNormalCPs > 0 ? Math.round(completedNormal / totalNormalCPs * 100) : 0;
+      var fillEl = document.getElementById('rec-prog-bar-fill');
+      if (fillEl) fillEl.style.width = pct + '%';
+      var statusEl = document.getElementById('rec-status-val');
+      if (statusEl) {
+        statusEl.textContent = !started ? '대기' : ended ? '완주🏆' : completedNormal + '/' + totalNormalCPs;
+      }
+      // 경과 시간 동기화
+      var recElapsed = document.getElementById('rec-elapsed');
+      if (recElapsed) recElapsed.textContent = document.getElementById('elapsed-time').textContent;
       if (currentProgMode === 'hiking') updateHikingProgressBar();
     }
 
@@ -1045,8 +1141,10 @@
       document.getElementById('start-time').textContent = h + ':' + m;
       timerInterval = setInterval(function() {
         var diff = Math.floor((new Date() - startTime) / 1000);
-        document.getElementById('elapsed-time').textContent =
-          Math.floor(diff/60).toString().padStart(2,'0') + ':' + (diff%60).toString().padStart(2,'0');
+        var timeStr = Math.floor(diff/60).toString().padStart(2,'0') + ':' + (diff%60).toString().padStart(2,'0');
+        document.getElementById('elapsed-time').textContent = timeStr;
+        var re = document.getElementById('rec-elapsed');
+        if (re) re.textContent = timeStr;
       }, 1000);
     }
 

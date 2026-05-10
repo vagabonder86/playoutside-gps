@@ -216,7 +216,7 @@
         checkpoints = prog.cps.map(function(cp) {
           return {
             id:      cp.type === 'start' ? 'S' : cp.type === 'end' ? 'F' : cp.id,
-            name:    cp.name,
+            name:    cp.type === 'start' ? '출발 지점' : cp.type === 'end' ? '도착 지점' : cp.name,
             lat:     cp.lat,
             lng:     cp.lng,
             color:   cp.type === 'start' ? '#1D9E75' : cp.type === 'end' ? '#D85A30' : '#534AB7',

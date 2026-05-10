@@ -127,24 +127,6 @@
     }
     .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.65); }
 
-    /* 다음 CP 배너 (하단 슬림) */
-    #next-cp-banner {
-      display:none; position:absolute; bottom:64px; left:10px; right:10px;
-      background:rgba(10,10,10,0.78); backdrop-filter:blur(10px);
-      color:white; border-radius:12px; z-index:400;
-      flex-direction:row; align-items:center;
-      padding:7px 12px; gap:8px; height:40px;
-    }
-    .next-cp-arrow {
-      font-size:18px; font-weight:900; color:#5DCAA5; line-height:1;
-      flex-shrink:0; width:22px; text-align:center;
-    }
-    .next-cp-body { flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
-    .next-cp-label { display:none; }
-    .next-cp-name  { font-size:13px; font-weight:600; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .next-cp-sub   { font-size:11px; color:rgba(255,255,255,0.5); white-space:nowrap; flex-shrink:0; }
-    .next-cp-dist-big { font-size:15px; font-weight:700; color:#5DCAA5; flex-shrink:0; text-align:right; line-height:1; }
-    .next-cp-dist-unit { font-size:11px; color:rgba(255,255,255,0.45); margin-left:2px; }
     .off-trail-warn { background:rgba(180,30,30,0.88) !important; }
 
     /* 비상 연락처 버튼 — 숨김 */
@@ -239,19 +221,6 @@
           <div class="hike-pb-label">CP <span id="hike-cp-done">0</span>/<span id="hike-cp-total">0</span> 완료</div>
           <div class="hike-pb-label" id="hike-remain-label"></div>
         </div>
-      </div>
-    </div>
-
-    <!-- 다음 CP 배너 (하단 콤팩트) -->
-    <div id="next-cp-banner">
-      <div class="next-cp-arrow" id="next-cp-arrow">↑</div>
-      <div class="next-cp-body">
-        <div class="next-cp-name" id="next-cp-name-text">-</div>
-        <div class="next-cp-sub" id="next-cp-dir">방향 확인 중</div>
-      </div>
-      <div style="display:flex;align-items:baseline;gap:2px;flex-shrink:0">
-        <div class="next-cp-dist-big" id="next-cp-dist">-</div>
-        <div class="next-cp-dist-unit" id="next-cp-unit">km</div>
       </div>
     </div>
 
@@ -916,7 +885,6 @@
     // 하이킹 UI 초기화 (로그인 직후 호출)
     function initHikingUI() {
       document.getElementById('hike-top-overlay').style.display = 'block';
-      document.getElementById('next-cp-banner').style.display = 'block';
       document.getElementById('hike-cp-total').textContent = totalNormalCPs;
       // 비상 연락처
       var emergency = currentModeSettings.emergency;
@@ -986,67 +954,16 @@
         }
       }
 
-      // 다음 CP 배너 갱신
-      updateNextCPBanner(lat, lng);
-
       // 경로 이탈 감지 (GPX 있고 진행 중일 때)
       if (gpxRoute.length > 0 && started && !ended) {
         var distToPath = getDistanceToGPX(lat, lng);
         if (distToPath > 80 && !offTrailAlerted) {
           offTrailAlerted = true;
-          document.getElementById('next-cp-banner').classList.add('off-trail-warn');
           showGpsAlert('⚠️ 경로 이탈! ' + Math.round(distToPath) + 'm 벗어났습니다');
         } else if (distToPath <= 50 && offTrailAlerted) {
           offTrailAlerted = false;
-          document.getElementById('next-cp-banner').classList.remove('off-trail-warn');
         }
       }
-    }
-
-    // 다음 CP 방향/거리 배너 갱신
-    function updateNextCPBanner(lat, lng) {
-      var target = null;
-      var label  = '다음 체크포인트';
-      var nameText = '';
-
-      if (!started) {
-        target   = checkpoints.find(function(c) { return c.type === 'start'; });
-        label    = '출발 지점으로 이동';
-        nameText = '🚩 GPS 반경 진입 시 자동 인증';
-      } else if (!ended) {
-        checkpoints.forEach(function(cp, i) {
-          if (target) return;
-          if (cp.type === 'normal' && !completedCPs.has(i)) { target = cp; nameText = cp.name; label = '다음 체크포인트'; }
-        });
-        if (!target) {
-          target   = checkpoints.find(function(c) { return c.type === 'end'; });
-          label    = '도착 지점으로 이동';
-          nameText = '🏁 GPS 반경 진입 시 자동 완료';
-        }
-      } else {
-        document.getElementById('next-cp-arrow').textContent      = '🏆';
-        document.getElementById('next-cp-label').textContent      = '완주 완료!';
-        document.getElementById('next-cp-name-text').textContent  = '수고하셨습니다';
-        document.getElementById('next-cp-dir').textContent        = '';
-        document.getElementById('next-cp-dist').textContent       = '';
-        document.getElementById('next-cp-unit').textContent       = '';
-        return;
-      }
-
-      if (!target) return;
-      var dist    = getDistance(lat, lng, target.lat, target.lng);
-      var bearing = getBearing(lat, lng, target.lat, target.lng);
-      // 거리: 1km 이상이면 소수 1자리 km, 미만이면 정수 m
-      var distNum, distUnit;
-      if (dist >= 1000) { distNum = (dist/1000).toFixed(1); distUnit = 'km 앞'; }
-      else               { distNum = Math.round(dist) + ''; distUnit = 'm 앞'; }
-
-      document.getElementById('next-cp-arrow').textContent      = bearingToArrow(bearing);
-      document.getElementById('next-cp-label').textContent      = label;
-      document.getElementById('next-cp-name-text').textContent  = nameText;
-      document.getElementById('next-cp-dir').textContent        = bearingToKorean(bearing) + ' 방향';
-      document.getElementById('next-cp-dist').textContent       = distNum;
-      document.getElementById('next-cp-unit').textContent       = distUnit;
     }
 
     // 팀원 위치 실시간 구독

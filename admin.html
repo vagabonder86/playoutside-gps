@@ -1742,19 +1742,6 @@
     });
   }
 
-  // ── 모바일 하단 탭 연동 ────────────────────────────────
-  document.querySelectorAll('.m-tab').forEach(function(tab) {
-    tab.addEventListener('click', function() {
-      var screen = tab.dataset.screen;
-      if (screen === 'new-program') { showScreen('new-program'); }
-      else if (screen === 'participants') {
-        var progId = currentProgId || (programs.length > 0 ? programs[0].id : null);
-        if (progId) showScreen('participants', progId);
-      }
-      else { showScreen(screen); }
-    });
-  });
-
   // 화면 전환 시 모바일 탭 활성 상태 동기화
   var _origShowScreen = showScreen;
   showScreen = function(name, progId) {
@@ -1785,5 +1772,20 @@
     <i class="ti ti-chart-bar"></i>통계
   </div>
 </nav>
+
+<script>
+  // ── 모바일 하단 탭 이벤트 (HTML 이후 연결) ────────────
+  document.querySelectorAll('.m-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var screen = tab.dataset.screen;
+      if (screen === 'participants') {
+        var progId = currentProgId || (programs.length > 0 ? programs[0].id : null);
+        if (progId) showScreen('participants', progId);
+      } else {
+        showScreen(screen);
+      }
+    });
+  });
+</script>
 </body>
 </html>

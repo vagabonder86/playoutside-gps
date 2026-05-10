@@ -857,11 +857,14 @@
       if (isActive) card.style.outline = '2px solid #1D9E75';
       card.innerHTML =
         '<div class="prog-card-header">' +
-          '<div><div class="prog-card-title">' + prog.name +
+          '<div style="flex:1;min-width:0"><div class="prog-card-title">' + prog.name +
             (isActive ? ' <span style="font-size:10px;background:#1D9E75;color:white;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">▶ 실행 중</span>' : '') +
           '</div>' +
           '<div class="prog-card-meta">' + (prog.location||'장소 미정') + ' · ' + dateStr + (prog.manager ? ' · ' + prog.manager : '') + '</div></div>' +
-          '<span class="badge ' + badge + '">' + (modeNames[prog.mode]||prog.mode) + '</span>' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+            '<span class="badge ' + badge + '">' + (modeNames[prog.mode]||prog.mode) + '</span>' +
+            '<button class="btn btn-sm prog-setting-btn" data-id="' + prog.id + '" style="padding:4px 8px" title="프로그램 설정 편집"><i class="ti ti-settings" style="font-size:15px"></i></button>' +
+          '</div>' +
         '</div>' +
         '<div class="prog-card-body">' +
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.cps?prog.cps.filter(function(c){return c.type==='normal'}).length:0) + '</div><div class="prog-stat-label">일반 CP</div></div>' +
@@ -873,7 +876,6 @@
             '<button class="btn btn-sm activate-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;' + (isActive ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : '') + '">' +
               '<i class="ti ti-player-play"></i> ' + (isActive ? '실행 중' : '참가자에 적용') + '</button>' +
             '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-map-pin"></i> CP 편집</button>' +
-            '<button class="btn btn-sm prog-setting-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-settings"></i> 설정</button>' +
             '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '" style="flex-shrink:0"><i class="ti ti-trash"></i></button>' +
           '</div>' +
           '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="width:100%;justify-content:center;color:#534AB7;border-color:#EEEDFE;background:#EEEDFE">' +

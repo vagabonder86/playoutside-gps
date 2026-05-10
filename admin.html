@@ -7,6 +7,7 @@
   <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,6 +95,41 @@
     .modal-btns { display: flex; gap: 8px; }
     .modal-btns .btn { flex: 1; justify-content: center; }
 
+    /* ── 로그인 화면 ──────────────────────────────────────── */
+    #login-screen {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: #085041;
+      align-items: center; justify-content: center;
+    }
+    #login-screen.show { display: flex; }
+    .login-box {
+      background: white; border-radius: 20px; padding: 40px 36px;
+      width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+    }
+    .login-logo { text-align: center; margin-bottom: 28px; }
+    .login-logo-icon { font-size: 40px; margin-bottom: 8px; }
+    .login-logo h1 { font-size: 18px; font-weight: 600; color: #085041; }
+    .login-logo p { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .login-field { margin-bottom: 14px; }
+    .login-field label { display: block; font-size: 11px; font-weight: 600; color: #888; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .login-field input {
+      width: 100%; padding: 12px 14px; border: 1px solid #e0e0d8;
+      border-radius: 10px; font-size: 15px; color: #2c2c2a;
+      background: #f9f9f6; outline: none; transition: border-color .15s;
+    }
+    .login-field input:focus { border-color: #1D9E75; background: white; }
+    .login-btn {
+      width: 100%; padding: 13px; background: #1D9E75; color: white;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 6px; transition: background .15s;
+    }
+    .login-btn:hover { background: #0F6E56; }
+    .login-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .login-error {
+      font-size: 13px; color: #c0392b; text-align: center;
+      margin-top: 12px; min-height: 20px;
+    }
+
     /* ── 모바일 하단 탭바 ────────────────────────────────── */
     .mobile-nav { display: none; }
 
@@ -154,6 +190,28 @@
   </style>
 </head>
 <body>
+
+<!-- ── 로그인 화면 ──────────────────────────────────────── -->
+<div id="login-screen" class="show">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🌿</div>
+      <h1>플레이아웃사이드</h1>
+      <p>관리자 페이지</p>
+    </div>
+    <div class="login-field">
+      <label>이메일</label>
+      <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>비밀번호</label>
+      <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="login-btn">로그인</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
 <div class="layout">
   <div class="sidebar">
     <div class="sidebar-logo">
@@ -181,9 +239,15 @@
         </button>
         <div class="topbar-title" id="topbar-title">프로그램 목록</div>
       </div>
-      <button class="btn btn-primary" id="topbar-new-btn">
-        <i class="ti ti-plus"></i> 새 프로그램
-      </button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="topbar-user" style="font-size:12px;color:#888;display:none"></span>
+        <button class="btn btn-primary" id="topbar-new-btn">
+          <i class="ti ti-plus"></i> 새 프로그램
+        </button>
+        <button class="btn btn-sm" id="logout-btn" title="로그아웃" style="display:none;padding:7px 10px">
+          <i class="ti ti-logout"></i>
+        </button>
+      </div>
     </div>
 
     <div class="content">
@@ -619,6 +683,78 @@
   };
   firebase.initializeApp(firebaseConfig);
   var db = firebase.firestore();
+  var auth = firebase.auth();
+
+  // ── 로그인 / 인증 ──────────────────────────────────────
+  var loginScreen = document.getElementById('login-screen');
+  var loginBtn    = document.getElementById('login-btn');
+  var loginError  = document.getElementById('login-error');
+  var logoutBtn   = document.getElementById('logout-btn');
+  var topbarUser  = document.getElementById('topbar-user');
+  var mainLayout  = document.querySelector('.layout');
+
+  // 로그인 상태 감지
+  auth.onAuthStateChanged(function(user) {
+    if (user) {
+      // 로그인됨 → 로그인 화면 숨기고 앱 표시
+      loginScreen.classList.remove('show');
+      mainLayout.style.display = 'flex';
+      topbarUser.textContent = user.email;
+      topbarUser.style.display = 'inline';
+      logoutBtn.style.display = 'inline-flex';
+      loadPrograms(); // 프로그램 목록 로드
+    } else {
+      // 비로그인 → 로그인 화면 표시
+      loginScreen.classList.add('show');
+      mainLayout.style.display = 'none';
+    }
+  });
+
+  // 로그인 버튼
+  loginBtn.addEventListener('click', function() {
+    var email = document.getElementById('login-email').value.trim();
+    var pw    = document.getElementById('login-pw').value;
+    if (!email || !pw) { loginError.textContent = '이메일과 비밀번호를 입력하세요.'; return; }
+    loginBtn.disabled = true;
+    loginBtn.textContent = '로그인 중...';
+    loginError.textContent = '';
+    auth.signInWithEmailAndPassword(email, pw)
+      .then(function() {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '로그인';
+      })
+      .catch(function(err) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '로그인';
+        var msg = '로그인에 실패했습니다.';
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+          msg = '이메일 또는 비밀번호가 올바르지 않습니다.';
+        } else if (err.code === 'auth/too-many-requests') {
+          msg = '로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.';
+        } else if (err.code === 'auth/invalid-email') {
+          msg = '이메일 형식이 올바르지 않습니다.';
+        }
+        loginError.textContent = msg;
+      });
+  });
+
+  // Enter 키로 로그인
+  document.getElementById('login-pw').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+  document.getElementById('login-email').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('login-pw').focus();
+  });
+
+  // 로그아웃
+  logoutBtn.addEventListener('click', function() {
+    if (confirm('로그아웃 하시겠어요?')) {
+      auth.signOut();
+    }
+  });
+
+  // 초기 레이아웃 숨김 (onAuthStateChanged 이전)
+  mainLayout.style.display = 'none';
 
   // ── 전역 상태 ─────────────────────────────────────────
   var programs = [];
@@ -1579,28 +1715,32 @@
   }
 
   // ── Firestore 실시간 프로그램 목록 구독 ───────────────
-  db.collection('programs').onSnapshot(function(snapshot) {
-    programs = [];
-    snapshot.forEach(function(doc) {
-      programs.push(Object.assign({ id: doc.id }, doc.data()));
-    });
-    // 최신순 정렬 (클라이언트 사이드)
-    programs.sort(function(a, b) {
-      var ta = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : 0) : 0;
-      var tb = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : 0) : 0;
-      return tb - ta;
-    });
-    // 현재 화면이 programs/stats면 즉시 반영
-    var activeScreen = document.querySelector('.screen.active');
-    if (activeScreen && activeScreen.id === 'screen-programs') { renderPrograms(); }
-    if (activeScreen && activeScreen.id === 'screen-stats') { renderStats(); }
-  }, function(err) {
-    console.error('프로그램 목록 구독 오류:', err);
-    alert('프로그램 목록을 불러오지 못했습니다: ' + err.message);
-  });
+  var programsUnsubscribe = null;
 
-  // 초기 화면 표시
-  showScreen('programs');
+  function loadPrograms() {
+    // 이미 구독 중이면 재구독 방지
+    if (programsUnsubscribe) return;
+    showScreen('programs');
+    programsUnsubscribe = db.collection('programs').onSnapshot(function(snapshot) {
+      programs = [];
+      snapshot.forEach(function(doc) {
+        programs.push(Object.assign({ id: doc.id }, doc.data()));
+      });
+      // 최신순 정렬 (클라이언트 사이드)
+      programs.sort(function(a, b) {
+        var ta = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : 0) : 0;
+        var tb = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : 0) : 0;
+        return tb - ta;
+      });
+      // 현재 화면이 programs/stats면 즉시 반영
+      var activeScreen = document.querySelector('.screen.active');
+      if (activeScreen && activeScreen.id === 'screen-programs') { renderPrograms(); }
+      if (activeScreen && activeScreen.id === 'screen-stats') { renderStats(); }
+    }, function(err) {
+      console.error('프로그램 목록 구독 오류:', err);
+      alert('프로그램 목록을 불러오지 못했습니다: ' + err.message);
+    });
+  }
 
   // ── 모바일 하단 탭 연동 ────────────────────────────────
   document.querySelectorAll('.m-tab').forEach(function(tab) {

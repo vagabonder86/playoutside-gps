@@ -179,6 +179,7 @@
     var checkpoints = DEFAULT_CHECKPOINTS;
     var totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
     var completedCPs  = new Set();
+    var gpsVerifiedCPs = new Set(); // GPS로 실제 방문 확인된 CP
     var nearbyAlerted = new Set();
     var activeCPIndex = null;
     var map, userMarker, markers = [];
@@ -312,7 +313,10 @@
         if (existingData && existingData.status !== 'not-started') {
           // ── 기존 진행상황 복원 ──────────────────────────
           var saved = existingData.completedCPs || [];
-          saved.forEach(function(idx) { completedCPs.add(idx); });
+          saved.forEach(function(idx) {
+            completedCPs.add(idx);
+            gpsVerifiedCPs.add(idx); // 완료한 CP는 방문한 것으로 복원
+          });
 
           if (existingData.status === 'in-progress' || existingData.status === 'finished') {
             started = true;
@@ -556,6 +560,7 @@
             if (cp.type !== 'normal' || completedCPs.has(i) || nearbyAlerted.has(i)) return;
             if (getDistance(lat, lng, cp.lat, cp.lng) <= (cp.radius || 30)) {
               nearbyAlerted.add(i);
+              gpsVerifiedCPs.add(i); // GPS 방문 확인
               playAlert('cp');
               showGpsAlert('📍 ' + cp.name + ' 도착! 미션을 확인하세요');
               setTimeout(function() { openMission(i); }, 1000);
@@ -615,6 +620,10 @@
       }
       if (!started) { alert('먼저 출발 지점에서 인증해주세요!'); return; }
       if (completedCPs.has(i)) { alert('이미 완료한 포인트입니다!'); return; }
+      if (!gpsVerifiedCPs.has(i)) {
+        showGpsAlert('📍 ' + cp.name + ' 에 직접 방문해야 미션을 시작할 수 있습니다');
+        return;
+      }
       activeCPIndex = i;
       document.getElementById('mission-title').textContent = cp.name + ' 미션';
       document.getElementById('mission-desc').textContent  = cp.mission || '이 지점을 방문했습니다.';
@@ -692,11 +701,12 @@
           badgeLabel  = done ? '✓' : 'F';
           badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : 'background:#FAECE7;color:#712B13';
         } else {
-          statusClass = done ? 'status-done' : 'status-open';
-          statusText  = done ? '완료' : '미완료';
-          desc        = done ? '미션 완료' : '탭해서 미션 확인';
+          var gpsOk = gpsVerifiedCPs.has(i);
+          statusClass = done ? 'status-done' : gpsOk ? 'status-open' : 'status-lock';
+          statusText  = done ? '완료' : gpsOk ? '미션 대기' : 'GPS 미인증';
+          desc        = done ? '미션 완료' : gpsOk ? '탭해서 미션 확인' : '해당 지점 30m 반경에 가까이 가세요';
           badgeLabel  = done ? '✓' : cp.id;
-          badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : '';
+          badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : gpsOk ? '' : 'background:#f0efe8;color:#aaa';
         }
 
         var item = document.createElement('div');

@@ -292,12 +292,85 @@
       userName  = name;
       userPhone = phone;
       userId    = name + '_' + phone;
-      document.getElementById('header-sub').textContent = name + '님 · ' + currentProgName;
-      document.getElementById('login-overlay').style.display = 'none';
-      document.getElementById('score-total').textContent = totalNormalCPs;
-      initMap();
-      renderCPList();
-      startGPSWatch();
+
+      var btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.textContent = '확인 중...';
+
+      // ── Firestore에서 기존 참가 기록 확인 ────────────────
+      var userRef = currentProgId
+        ? db.collection('participants').doc(currentProgId).collection('users').doc(userId)
+        : null;
+
+      function startApp(existingData) {
+        document.getElementById('header-sub').textContent = name + '님 · ' + currentProgName;
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('score-total').textContent = totalNormalCPs;
+
+        if (existingData && existingData.status !== 'not-started') {
+          // ── 기존 진행상황 복원 ──────────────────────────
+          var saved = existingData.completedCPs || [];
+          saved.forEach(function(idx) { completedCPs.add(idx); });
+
+          if (existingData.status === 'in-progress' || existingData.status === 'finished') {
+            started = true;
+            // 타이머 복원
+            if (existingData.startedAt) {
+              var savedStart = existingData.startedAt.toDate ? existingData.startedAt.toDate() : new Date(existingData.startedAt);
+              startTime = savedStart;
+              var h = savedStart.getHours().toString().padStart(2,'0');
+              var m = savedStart.getMinutes().toString().padStart(2,'0');
+              document.getElementById('start-time').textContent = h + ':' + m;
+              timerInterval = setInterval(function() {
+                var diff = Math.floor((new Date() - startTime) / 1000);
+                document.getElementById('elapsed-time').textContent =
+                  Math.floor(diff/60).toString().padStart(2,'0') + ':' + (diff%60).toString().padStart(2,'0');
+              }, 1000);
+            }
+          }
+
+          if (existingData.status === 'finished') {
+            ended = true;
+            if (existingData.finishedAt) {
+              var fin = existingData.finishedAt.toDate ? existingData.finishedAt.toDate() : new Date(existingData.finishedAt);
+              document.getElementById('end-time').textContent =
+                fin.getHours().toString().padStart(2,'0') + ':' + fin.getMinutes().toString().padStart(2,'0');
+            }
+            clearInterval(timerInterval);
+          }
+
+          initMap();
+          renderCPList();
+          startGPSWatch();
+
+          if (existingData.status === 'finished') {
+            showGpsAlert('🏆 이미 완주한 기록이 있어요!');
+          } else {
+            showGpsAlert('🔄 이전 진행상황을 불러왔습니다 (' + completedCPs.size + '개 완료)');
+          }
+        } else {
+          // ── 신규 참가자 ─────────────────────────────────
+          initMap();
+          renderCPList();
+          startGPSWatch();
+        }
+      }
+
+      if (userRef) {
+        userRef.get().then(function(doc) {
+          btn.disabled = false;
+          btn.textContent = '시작하기';
+          startApp(doc.exists ? doc.data() : null);
+        }).catch(function() {
+          btn.disabled = false;
+          btn.textContent = '시작하기';
+          startApp(null);
+        });
+      } else {
+        btn.disabled = false;
+        btn.textContent = '시작하기';
+        startApp(null);
+      }
     }
 
     // ── 출발 인증 → Firestore 기록 ───────────────────────

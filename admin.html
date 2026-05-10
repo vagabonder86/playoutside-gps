@@ -160,7 +160,13 @@
               <input type="date" id="prog-date">
             </div>
             <div class="form-group">
-              <label>제한 시간 (분)</label>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label style="margin-bottom:0">제한 시간 (분)</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#888;cursor:pointer;font-weight:400">
+                  <input type="checkbox" id="time-no-limit" style="width:14px;height:14px;accent-color:#1D9E75;cursor:pointer">
+                  없음
+                </label>
+              </div>
               <input type="number" id="prog-time" placeholder="90" min="10">
             </div>
           </div>
@@ -291,12 +297,6 @@
           <!-- 하이킹 설정 -->
           <div id="settings-hiking" class="mode-settings" style="display:none">
             <div style="font-size:12px;font-weight:500;color:#D85A30;margin-bottom:12px">🥾 하이킹 설정</div>
-            <div class="form-group" style="margin-bottom:8px">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400">
-                <input type="checkbox" id="hike-no-timelimit" style="width:16px;height:16px;accent-color:#1D9E75;cursor:pointer">
-                <span>제한시간 없음 <span style="color:#aaa;font-size:11px">(하이킹 권장)</span></span>
-              </label>
-            </div>
             <div class="form-row">
               <div class="form-group">
                 <label>인솔자 위치 공유</label>
@@ -654,7 +654,7 @@
       };
     } else if (selectedMode === 'hiking') {
       return {
-        noTimeLimit: document.getElementById('hike-no-timelimit').checked,
+        noTimeLimit: document.getElementById('time-no-limit').checked,
         leader: document.getElementById('hike-leader').value,
         share: document.getElementById('hike-share').value,
         radius: document.getElementById('hike-radius').value,
@@ -736,11 +736,8 @@
       document.getElementById(id).value = '';
     });
     // 제한시간 필드 초기화
-    var timeInput = document.getElementById('prog-time');
-    timeInput.disabled = false;
-    timeInput.placeholder = '90';
-    timeInput.style.color = '';
-    document.getElementById('hike-no-timelimit').checked = false;
+    document.getElementById('time-no-limit').checked = false;
+    applyNoTimeLimit(false);
     selectedMode = 'geocaching';
     document.querySelectorAll('.mode-option').forEach(function(m, i) { m.classList.toggle('selected', i === 0); });
     showModeSettings('geocaching');
@@ -763,21 +760,11 @@
     });
     showModeSettings(selectedMode);
 
-    // 제한시간 (하이킹 noTimeLimit 우선)
-    var timeInput = document.getElementById('prog-time');
-    if (ms.noTimeLimit) {
-      document.getElementById('hike-no-timelimit').checked = true;
-      timeInput.disabled    = true;
-      timeInput.value       = '';
-      timeInput.placeholder = '제한시간 없음';
-      timeInput.style.color = '#aaa';
-    } else {
-      document.getElementById('hike-no-timelimit').checked = false;
-      timeInput.disabled    = false;
-      timeInput.value       = prog.time || '';
-      timeInput.placeholder = '90';
-      timeInput.style.color = '';
-    }
+    // 제한시간
+    var noLimit = !!(ms.noTimeLimit || prog.noTimeLimit);
+    document.getElementById('time-no-limit').checked = noLimit;
+    applyNoTimeLimit(noLimit);
+    if (!noLimit) document.getElementById('prog-time').value = prog.time || '';
 
     // 지오캐싱 설정
     if (ms.baseScore   !== undefined) document.getElementById('geo-base-score').value    = ms.baseScore;
@@ -810,11 +797,13 @@
     var name = document.getElementById('prog-name').value.trim();
     if (!name) { alert('프로그램 이름을 입력해주세요'); return; }
 
+    var noLimit = document.getElementById('time-no-limit').checked;
     var progData = {
       name:         name,
       location:     document.getElementById('prog-location').value.trim(),
       date:         document.getElementById('prog-date').value,
-      time:         document.getElementById('hike-no-timelimit').checked ? '' : document.getElementById('prog-time').value,
+      time:         noLimit ? '' : document.getElementById('prog-time').value,
+      noTimeLimit:  noLimit,
       participants: document.getElementById('prog-participants').value,
       manager:      document.getElementById('prog-manager').value.trim(),
       desc:         document.getElementById('prog-desc').value.trim(),
@@ -876,7 +865,7 @@
         '</div>' +
         '<div class="prog-card-body">' +
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.cps?prog.cps.filter(function(c){return c.type==='normal'}).length:0) + '</div><div class="prog-stat-label">일반 CP</div></div>' +
-          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.modeSettings && prog.modeSettings.noTimeLimit ? '∞' : (prog.time||'-')) + '</div><div class="prog-stat-label">제한(분)</div></div>' +
+          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.noTimeLimit || (prog.modeSettings && prog.modeSettings.noTimeLimit) ? '∞' : (prog.time||'-')) + '</div><div class="prog-stat-label">제한(분)</div></div>' +
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.participants||'-') + '</div><div class="prog-stat-label">참가자</div></div>' +
         '</div>' +
         '<div class="prog-card-footer" style="flex-wrap:wrap;gap:6px">' +
@@ -1064,19 +1053,24 @@
     }
   });
 
-  // "제한시간 없음" 체크박스 핸들러
-  document.getElementById('hike-no-timelimit').addEventListener('change', function() {
+  // "없음" 체크박스 핸들러 (제한시간 입력 토글)
+  function applyNoTimeLimit(checked) {
     var timeInput = document.getElementById('prog-time');
-    if (this.checked) {
-      timeInput.disabled = true;
-      timeInput.value = '';
-      timeInput.placeholder = '제한시간 없음';
+    if (checked) {
+      timeInput.disabled    = true;
+      timeInput.value       = '';
+      timeInput.placeholder = '없음';
       timeInput.style.color = '#aaa';
+      timeInput.style.background = '#f5f5f0';
     } else {
-      timeInput.disabled = false;
+      timeInput.disabled    = false;
       timeInput.placeholder = '90';
       timeInput.style.color = '';
+      timeInput.style.background = '';
     }
+  }
+  document.getElementById('time-no-limit').addEventListener('change', function() {
+    applyNoTimeLimit(this.checked);
   });
 
   // ── 관리자 지도 ───────────────────────────────────────

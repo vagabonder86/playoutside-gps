@@ -453,13 +453,17 @@
       }
 
       checkpoints.forEach(function(cp, i) {
-        // 출발·도착 같은 위치: 도착 마커는 숨기고 출발 마커로 대체
-        var hide = startEndSame && cp.type === 'end';
+        // 출발·도착이 같은 좌표일 경우, F 마커를 살짝 아래로 오프셋해서 분리 표시
+        var markerLat = cp.lat;
+        var markerLng = cp.lng;
+        if (startEndSame && cp.type === 'end') {
+          markerLat = cp.lat - 0.00025; // 약 25m 남쪽으로 시각적 분리
+        }
         var marker = new naver.maps.Marker({
-          position: new naver.maps.LatLng(cp.lat, cp.lng),
-          map: hide ? null : map,
+          position: new naver.maps.LatLng(markerLat, markerLng),
+          map: map,
           icon: makeIcon(cp, i),
-          zIndex: 10  // CP 마커가 경로 위에 표시
+          zIndex: cp.type === 'start' ? 12 : cp.type === 'end' ? 11 : 10
         });
         (function(idx) {
           naver.maps.Event.addListener(marker, 'click', function() { openMission(idx); });
@@ -497,23 +501,16 @@
 
     // ── 마커 아이콘 ───────────────────────────────────────
     function makeIcon(cp, i) {
-      var done  = completedCPs.has(i);
-      var bg    = done ? '#1D9E75' : cp.color;
-      var size  = (cp.type === 'start' || cp.type === 'end') ? '36px' : '32px';
-      var label;
-      if (done) {
-        label = '✓';
-      } else if (startEndSame && cp.type === 'start') {
-        // 합쳐진 마커: 반원 두 색으로 표시
-        var endDone = completedCPs.has(checkpoints.findIndex(function(c) { return c.type === 'end'; }));
-        label = endDone ? '✓' : 'S·F';
-        bg = '#1D9E75';
-        size = '40px';
-      } else {
-        label = cp.id;
-      }
+      var done = completedCPs.has(i);
+      var bg   = done ? '#1D9E75' : cp.color;
+      var size = (cp.type === 'start' || cp.type === 'end') ? '38px' : '32px';
+      var label = done ? '✓' : cp.id;
+      var fontSize = '13px';
+      // 출발·도착 마커: 텍스트 레이블 보정
+      if (!done && cp.type === 'start') { label = 'S'; fontSize = '14px'; }
+      if (!done && cp.type === 'end')   { label = 'F'; fontSize = '14px'; }
       return {
-        content: '<div style="width:' + size + ';height:' + size + ';border-radius:50%;background:' + bg + ';color:white;display:flex;align-items:center;justify-content:center;font-size:' + (label === 'S·F' ? '11px' : '13px') + ';font-weight:600;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">' + label + '</div>',
+        content: '<div style="width:' + size + ';height:' + size + ';border-radius:50%;background:' + bg + ';color:white;display:flex;align-items:center;justify-content:center;font-size:' + fontSize + ';font-weight:700;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">' + label + '</div>',
         anchor: new naver.maps.Point(parseInt(size)/2, parseInt(size)/2)
       };
     }

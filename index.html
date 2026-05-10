@@ -55,6 +55,31 @@
     #locate-btn { position: absolute; bottom: 24px; right: 16px; z-index: 500; width: 44px; height: 44px; background: white; border: 0.5px solid #ddd; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     #map-type-btn { position: absolute; top: 12px; right: 12px; z-index: 500; padding: 6px 12px; background: white; border: 0.5px solid #ddd; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; color: #2c2c2a; display: flex; align-items: center; gap: 5px; }
     #map-type-btn:hover { background: #f5f5f0; }
+
+    /* ── 하이킹 모드 오버레이 UI ──────────────────────── */
+    #hike-top-overlay { display:none; position:absolute; top:0; left:0; right:0; z-index:300; pointer-events:none; }
+    #hike-stats-bar { background:rgba(8,80,65,0.92); backdrop-filter:blur(6px); padding:8px 16px; display:flex; justify-content:space-around; align-items:center; pointer-events:auto; }
+    .h-stat { text-align:center; min-width:60px; }
+    .h-stat-v { font-size:15px; font-weight:700; color:white; line-height:1.1; }
+    .h-stat-l { font-size:9px; color:rgba(255,255,255,0.6); margin-top:2px; letter-spacing:0.04em; }
+    .h-divider { width:0.5px; height:28px; background:rgba(255,255,255,0.2); }
+    #hike-progress-wrap { background:rgba(8,80,65,0.82); padding:5px 16px 8px; pointer-events:auto; }
+    .hike-pb { height:4px; background:rgba(255,255,255,0.2); border-radius:2px; overflow:hidden; margin-bottom:4px; }
+    .hike-pb-fill { height:100%; background:#5DCAA5; border-radius:2px; transition:width 0.6s ease; width:0%; }
+    .hike-pb-row { display:flex; justify-content:space-between; align-items:center; }
+    .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.7); }
+
+    #next-cp-banner { display:none; position:absolute; bottom:80px; left:12px; right:68px; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); color:white; border-radius:14px; padding:10px 14px; z-index:400; }
+    .next-cp-name { font-size:11px; color:rgba(255,255,255,0.6); margin-bottom:2px; }
+    .next-cp-dir { font-size:17px; font-weight:700; color:#5DCAA5; }
+    .next-cp-dist { font-size:13px; color:rgba(255,255,255,0.85); margin-top:1px; }
+
+    #emergency-btn { display:none; position:absolute; bottom:80px; right:12px; z-index:500; width:48px; height:48px; background:#E53E3E; border:2.5px solid white; border-radius:50%; font-size:22px; cursor:pointer; box-shadow:0 3px 12px rgba(229,62,62,0.55); justify-content:center; align-items:center; }
+    #emergency-btn:active { background:#C53030; transform:scale(0.95); }
+    .off-trail-warn { background:#E53E3E !important; }
+
+    /* 팀원 마커 */
+    .team-dot { background:#FF6B35; color:white; border-radius:20px; padding:3px 9px; font-size:11px; font-weight:600; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -124,6 +149,37 @@
   <!-- 지도 화면 -->
   <div id="screen-map" class="screen active" style="position:relative">
     <div id="map"></div>
+
+    <!-- 하이킹 모드 상단 오버레이 (통계 + 진행률) -->
+    <div id="hike-top-overlay">
+      <div id="hike-stats-bar">
+        <div class="h-stat"><div class="h-stat-v" id="hike-dist">0.0</div><div class="h-stat-l">이동 km</div></div>
+        <div class="h-divider"></div>
+        <div class="h-stat"><div class="h-stat-v" id="hike-alt">-</div><div class="h-stat-l">고도 m</div></div>
+        <div class="h-divider"></div>
+        <div class="h-stat"><div class="h-stat-v" id="hike-speed">-</div><div class="h-stat-l">속도 km/h</div></div>
+        <div class="h-divider"></div>
+        <div class="h-stat"><div class="h-stat-v" id="hike-eta">-</div><div class="h-stat-l">예상도착</div></div>
+      </div>
+      <div id="hike-progress-wrap">
+        <div class="hike-pb"><div class="hike-pb-fill" id="hike-pb-fill"></div></div>
+        <div class="hike-pb-row">
+          <div class="hike-pb-label">CP <span id="hike-cp-done">0</span>/<span id="hike-cp-total">0</span> 완료</div>
+          <div class="hike-pb-label" id="hike-remain-label">경로 남은 거리 -</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 다음 CP 배너 (지도 하단) -->
+    <div id="next-cp-banner">
+      <div class="next-cp-name" id="next-cp-label">다음 체크포인트</div>
+      <div class="next-cp-dir" id="next-cp-dir">-</div>
+      <div class="next-cp-dist" id="next-cp-dist">위치 확인 중...</div>
+    </div>
+
+    <!-- 비상 연락처 버튼 -->
+    <button id="emergency-btn" title="비상 연락처">🆘</button>
+
     <button id="locate-btn">📍</button>
     <button id="map-type-btn">🛰️ 위성</button>
   </div>
@@ -190,13 +246,22 @@
 
     var currentProgId = null;
     var currentProgName = '백련산 생태 탐험 2026';
-    var currentProgMode = null;   // 운영 방식 (geocaching/orienteering/hiking)
-    var gpxRoute = [];            // 하이킹 GPX 경로 좌표 [{lat,lng},...]
-    var gpxPolyline = null;       // 지도 폴리라인 인스턴스
+    var currentProgMode = null;       // 운영 방식 (geocaching/orienteering/hiking)
+    var currentModeSettings = {};     // 하이킹 세부 설정 (emergency 등)
+    var gpxRoute = [];                // 하이킹 GPX 경로 좌표 [{lat,lng},...]
+    var gpxPolyline = null;           // 지도 폴리라인 인스턴스
     var userName = '';
     var userPhone = '';
     var userId = '';
-    var lastLocationUpdate = 0;  // GPS 위치 업데이트 throttle용
+    var lastLocationUpdate = 0;      // GPS 위치 업데이트 throttle용
+
+    // 하이킹 전용 상태
+    var hikeTotalDist = 0;           // 누적 이동 거리 (m)
+    var hikeLastLat = null;
+    var hikeLastLng = null;
+    var offTrailAlerted = false;     // 경로 이탈 경고 중복 방지
+    var teamMarkers = {};            // userId → Marker (팀원 위치)
+    var teamUnsubscribe = null;      // Firestore 팀 구독 해제
 
     // ── 로그인 버튼 비활성화 (Firestore 로딩 중) ─────────
     document.getElementById('login-btn').disabled = true;
@@ -216,6 +281,7 @@
       var prog = progDoc.data();
       currentProgName = prog.name || currentProgName;
       currentProgMode = prog.mode || null;
+      currentModeSettings = prog.modeSettings || {};
       // 하이킹 GPX 경로 로드
       gpxRoute = (prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
       if (prog.cps && prog.cps.length > 0) {
@@ -354,6 +420,7 @@
           initMap();
           renderCPList();
           startGPSWatch();
+          if (currentProgMode === 'hiking') initHikingUI();
 
           if (existingData.status === 'finished') {
             showGpsAlert('🏆 이미 완주한 기록이 있어요!');
@@ -365,6 +432,7 @@
           initMap();
           renderCPList();
           startGPSWatch();
+          if (currentProgMode === 'hiking') initHikingUI();
         }
       }
 
@@ -525,6 +593,7 @@
       navigator.geolocation.watchPosition(function(pos) {
         var lat = pos.coords.latitude;
         var lng = pos.coords.longitude;
+        var alt = pos.coords.altitude;
         var latlng = new naver.maps.LatLng(lat, lng);
         if (userMarker) userMarker.setMap(null);
         userMarker = new naver.maps.Marker({
@@ -532,12 +601,18 @@
           icon: {
             content: '<div style="width:16px;height:16px;border-radius:50%;background:#378ADD;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
             anchor: new naver.maps.Point(8, 8)
-          }
+          },
+          zIndex: 20
         });
 
         // Firestore 위치 업데이트 (진행 중일 때만)
         if (started && !ended) {
           updateLocationFirestore(lat, lng);
+        }
+
+        // 하이킹 통계 업데이트
+        if (currentProgMode === 'hiking') {
+          updateHikingStats(lat, lng, alt);
         }
 
         // 출발 자동 인증
@@ -756,6 +831,210 @@
       }).length;
       document.getElementById('score-current').textContent = completedNormal;
       document.getElementById('score-total').textContent = totalNormalCPs;
+      if (currentProgMode === 'hiking') updateHikingProgressBar();
+    }
+
+    // ══════════════════════════════════════════════════════
+    // 하이킹 모드 전용 함수들
+    // ══════════════════════════════════════════════════════
+
+    // 하이킹 UI 초기화 (로그인 직후 호출)
+    function initHikingUI() {
+      document.getElementById('hike-top-overlay').style.display = 'block';
+      document.getElementById('next-cp-banner').style.display = 'block';
+      document.getElementById('hike-cp-total').textContent = totalNormalCPs;
+      // 비상 연락처
+      var emergency = currentModeSettings.emergency;
+      if (emergency && emergency.trim()) {
+        var btn = document.getElementById('emergency-btn');
+        btn.style.display = 'flex';
+        btn.addEventListener('click', function() {
+          var clean = emergency.replace(/[^0-9+]/g, '');
+          if (confirm('📞 비상 연락처(' + emergency + ')로 전화하시겠습니까?')) {
+            window.location.href = 'tel:' + clean;
+          }
+        });
+      }
+      // 팀원 위치 구독
+      subscribeTeam();
+      updateHikingProgressBar();
+    }
+
+    // 진행률 바 갱신
+    function updateHikingProgressBar() {
+      var done  = checkpoints.filter(function(c, i) { return c.type === 'normal' && completedCPs.has(i); }).length;
+      var total = totalNormalCPs;
+      var pct   = total > 0 ? (done / total * 100) : 0;
+      document.getElementById('hike-cp-done').textContent = done;
+      document.getElementById('hike-cp-total').textContent = total;
+      document.getElementById('hike-pb-fill').style.width = pct + '%';
+    }
+
+    // GPS 위치가 갱신될 때마다 하이킹 통계 업데이트
+    function updateHikingStats(lat, lng, alt) {
+      // 이동 거리 누적 (출발 후만, GPS 튐 50m 이상 점프 제외)
+      if (started && !ended && hikeLastLat !== null) {
+        var step = getDistance(hikeLastLat, hikeLastLng, lat, lng);
+        if (step > 0.5 && step < 50) hikeTotalDist += step;
+      }
+      hikeLastLat = lat;
+      hikeLastLng = lng;
+
+      // 이동 거리 표시
+      var distKm = hikeTotalDist / 1000;
+      document.getElementById('hike-dist').textContent =
+        distKm >= 1 ? distKm.toFixed(1) : distKm.toFixed(2);
+
+      // 고도
+      if (alt !== null && alt !== undefined && !isNaN(alt)) {
+        document.getElementById('hike-alt').textContent = Math.round(alt);
+      }
+
+      // 평균 속도
+      if (started && startTime && hikeTotalDist > 50) {
+        var elapsedH = (Date.now() - startTime.getTime()) / 3600000;
+        if (elapsedH > 0) {
+          var speed = distKm / elapsedH;
+          document.getElementById('hike-speed').textContent = speed.toFixed(1);
+
+          // ETA (GPX 남은 거리 기준)
+          if (gpxRoute.length > 1 && speed > 0.2) {
+            var remM = getRemainingGPXDistance(lat, lng);
+            document.getElementById('hike-remain-label').textContent =
+              '남은 경로 ' + (remM >= 1000 ? (remM/1000).toFixed(1) + 'km' : Math.round(remM) + 'm');
+            var etaH = (remM / 1000) / speed;
+            var etaDate = new Date(Date.now() + etaH * 3600000);
+            document.getElementById('hike-eta').textContent =
+              etaDate.getHours().toString().padStart(2,'0') + ':' +
+              etaDate.getMinutes().toString().padStart(2,'0');
+          }
+        }
+      }
+
+      // 다음 CP 배너 갱신
+      updateNextCPBanner(lat, lng);
+
+      // 경로 이탈 감지 (GPX 있고 진행 중일 때)
+      if (gpxRoute.length > 0 && started && !ended) {
+        var distToPath = getDistanceToGPX(lat, lng);
+        if (distToPath > 80 && !offTrailAlerted) {
+          offTrailAlerted = true;
+          document.getElementById('next-cp-banner').classList.add('off-trail-warn');
+          showGpsAlert('⚠️ 경로 이탈! ' + Math.round(distToPath) + 'm 벗어났습니다');
+        } else if (distToPath <= 50 && offTrailAlerted) {
+          offTrailAlerted = false;
+          document.getElementById('next-cp-banner').classList.remove('off-trail-warn');
+        }
+      }
+    }
+
+    // 다음 CP 방향/거리 배너 갱신
+    function updateNextCPBanner(lat, lng) {
+      var target = null;
+      var label  = '다음 체크포인트';
+
+      if (!started) {
+        // 아직 출발 전: 출발 지점 안내
+        target = checkpoints.find(function(c) { return c.type === 'start'; });
+        label  = '🚩 출발 지점으로 이동하세요';
+      } else if (!ended) {
+        // 진행 중: 첫 번째 미완료 normal CP
+        checkpoints.forEach(function(cp, i) {
+          if (target) return;
+          if (cp.type === 'normal' && !completedCPs.has(i)) { target = cp; label = '📍 ' + cp.name; }
+        });
+        // 모든 미션 완료 → 도착 지점
+        if (!target) {
+          target = checkpoints.find(function(c) { return c.type === 'end'; });
+          label  = '🏁 도착 지점으로 이동하세요';
+        }
+      } else {
+        document.getElementById('next-cp-label').textContent = '🏆 완주 완료!';
+        document.getElementById('next-cp-dir').textContent   = '수고하셨습니다';
+        document.getElementById('next-cp-dist').textContent  = '';
+        return;
+      }
+
+      if (!target) return;
+      var dist    = getDistance(lat, lng, target.lat, target.lng);
+      var bearing = getBearing(lat, lng, target.lat, target.lng);
+      var distStr = dist >= 1000 ? (dist/1000).toFixed(1) + 'km' : Math.round(dist) + 'm';
+
+      document.getElementById('next-cp-label').textContent = label;
+      document.getElementById('next-cp-dir').textContent   =
+        bearingToKorean(bearing) + ' ' + bearingToArrow(bearing);
+      document.getElementById('next-cp-dist').textContent  = distStr + ' 앞';
+    }
+
+    // 팀원 위치 실시간 구독
+    function subscribeTeam() {
+      if (!currentProgId || teamUnsubscribe) return;
+      teamUnsubscribe = db.collection('participants').doc(currentProgId)
+        .collection('users').onSnapshot(function(snapshot) {
+          snapshot.forEach(function(doc) {
+            if (doc.id === userId) return; // 내 마커 제외
+            var data = doc.data();
+            if (!data.location || !data.location.lat || !map) return;
+            var pos = new naver.maps.LatLng(data.location.lat, data.location.lng);
+            if (teamMarkers[doc.id]) {
+              teamMarkers[doc.id].setPosition(pos);
+            } else {
+              teamMarkers[doc.id] = new naver.maps.Marker({
+                position: pos,
+                map: map,
+                icon: {
+                  content: '<div class="team-dot">' + (data.name || '팀원') + '</div>',
+                  anchor: new naver.maps.Point(24, 12)
+                },
+                zIndex: 8
+              });
+            }
+          });
+        }, function(err) { console.warn('팀원 구독 오류:', err); });
+    }
+
+    // 방위각 계산
+    function getBearing(lat1, lng1, lat2, lng2) {
+      var dLng  = (lng2 - lng1) * Math.PI / 180;
+      var rlat1 = lat1 * Math.PI / 180;
+      var rlat2 = lat2 * Math.PI / 180;
+      var y = Math.sin(dLng) * Math.cos(rlat2);
+      var x = Math.cos(rlat1) * Math.sin(rlat2) - Math.sin(rlat1) * Math.cos(rlat2) * Math.cos(dLng);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+    function bearingToArrow(deg) {
+      return ['↑','↗','→','↘','↓','↙','←','↖'][Math.round(deg / 45) % 8];
+    }
+    function bearingToKorean(deg) {
+      return ['북','북동','동','남동','남','남서','서','북서'][Math.round(deg / 45) % 8];
+    }
+
+    // 현재 위치에서 GPX 경로까지 최소 거리
+    function getDistanceToGPX(lat, lng) {
+      if (!gpxRoute || gpxRoute.length === 0) return 0;
+      var minDist = Infinity;
+      var step = Math.max(1, Math.floor(gpxRoute.length / 120)); // 최대 120개 체크
+      for (var i = 0; i < gpxRoute.length; i += step) {
+        var d = getDistance(lat, lng, gpxRoute[i].lat, gpxRoute[i].lng);
+        if (d < minDist) minDist = d;
+      }
+      return minDist;
+    }
+
+    // 현재 위치 기준 GPX 경로 남은 거리
+    function getRemainingGPXDistance(lat, lng) {
+      if (!gpxRoute || gpxRoute.length < 2) return 0;
+      var minDist = Infinity, minIdx = 0;
+      gpxRoute.forEach(function(p, i) {
+        var d = getDistance(lat, lng, p.lat, p.lng);
+        if (d < minDist) { minDist = d; minIdx = i; }
+      });
+      var total = 0;
+      for (var i = minIdx; i < gpxRoute.length - 1; i++) {
+        total += getDistance(gpxRoute[i].lat, gpxRoute[i].lng,
+                             gpxRoute[i+1].lat, gpxRoute[i+1].lng);
+      }
+      return total;
     }
 
     // ── 타이머 ────────────────────────────────────────────

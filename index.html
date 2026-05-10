@@ -16,12 +16,33 @@
     .timer-bar { background: #085041; color: white; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; }
     .timer-bar .t-label { opacity: 0.7; font-size: 11px; }
     .timer-bar .t-value { font-weight: 500; font-size: 14px; }
-    .tabs { display: flex; background: white; border-bottom: 0.5px solid #e0e0d8; position: sticky; top: 88px; z-index: 99; }
-    .tab { flex: 1; padding: 12px; text-align: center; font-size: 13px; color: #888; cursor: pointer; border-bottom: 2px solid transparent; }
-    .tab.active { color: #1D9E75; border-bottom-color: #1D9E75; font-weight: 500; }
     .screen { display: none; }
     .screen.active { display: block; }
-    #map { width: 100%; height: calc(100vh - 140px); }
+    #map { width: 100%; height: calc(100vh - 152px); }
+
+    /* ── 하단 컨트롤 바 ─────────────────────────────────── */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 600;
+      display: flex; background: white;
+      border-top: 0.5px solid #e0e0d8;
+      height: 52px;
+      safe-area-inset-bottom: env(safe-area-inset-bottom);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .bb-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 2px;
+      font-size: 11px; color: #888; cursor: pointer;
+      border: none; background: none; padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: color .15s, background .15s;
+    }
+    .bb-btn:active { background: #f5f5f0; }
+    .bb-btn.active { color: #1D9E75; }
+    .bb-btn i { font-size: 20px; line-height: 1; }
+    .bb-sep { width: 0.5px; background: #e0e0d8; margin: 10px 0; flex-shrink: 0; }
+    .bb-zoom { font-size: 20px; font-weight: 300; color: #444; }
+    /* 기록 탭 활성화시 지도 화면 숨기고 미션 화면 보이게 */
     .container { max-width: 480px; margin: 0 auto; padding: 16px; }
     .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 12px; border: 0.5px solid #e0e0d8; }
     .card h2 { font-size: 15px; font-weight: 500; color: #1D9E75; margin-bottom: 10px; }
@@ -53,8 +74,8 @@
     .success-title { font-size: 20px; font-weight: 500; text-align: center; margin-bottom: 8px; color: #1D9E75; }
     .success-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 24px; line-height: 1.6; }
     #locate-btn { position: absolute; bottom: 24px; right: 16px; z-index: 500; width: 44px; height: 44px; background: white; border: 0.5px solid #ddd; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    #map-type-btn { position: absolute; top: 12px; right: 12px; z-index: 500; padding: 6px 12px; background: white; border: 0.5px solid #ddd; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; color: #2c2c2a; display: flex; align-items: center; gap: 5px; }
-    #map-type-btn:hover { background: #f5f5f0; }
+    /* 상단 map-type-btn 숨김 (하단 바로 대체) */
+    #map-type-btn { display: none !important; }
 
     /* ── 하이킹 모드 오버레이 UI ──────────────────────── */
 
@@ -112,8 +133,10 @@
     }
     #emergency-btn:active { transform:scale(0.93); }
 
-    /* 현재 위치 버튼 위치 조정 (배너 위로) */
-    #locate-btn { bottom: 90px; }
+    /* 현재 위치 버튼 — 하단 바 + 배너 위로 */
+    #locate-btn { bottom: 76px; right: 14px; }
+    /* 미션 화면 하단 여백 (하단 바 겹침 방지) */
+    #screen-mission .container { padding-bottom: 70px; }
 
     /* 팀원 마커 */
     .team-dot { background:#FF6B35; color:white; border-radius:20px; padding:3px 9px; font-size:11px; font-weight:600; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap; }
@@ -177,11 +200,6 @@
     <div style="text-align:right"><div class="t-label">도착</div><div class="t-value" id="end-time">--:--</div></div>
   </div>
 
-  <!-- 탭 -->
-  <div class="tabs">
-    <div class="tab active" id="tab-map">지도</div>
-    <div class="tab" id="tab-mission">미션</div>
-  </div>
 
   <!-- 지도 화면 -->
   <div id="screen-map" class="screen active" style="position:relative">
@@ -376,9 +394,6 @@
       document.getElementById('success-overlay').style.display = 'none';
     });
     document.getElementById('locate-btn').addEventListener('click', locateMe);
-    document.getElementById('map-type-btn').addEventListener('click', toggleMapType);
-    document.getElementById('tab-map').addEventListener('click', function() { showTab('map', this); });
-    document.getElementById('tab-mission').addEventListener('click', function() { showTab('mission', this); });
 
     // ── 알림음 ────────────────────────────────────────────
     function playAlert(type) {
@@ -1117,12 +1132,63 @@
     }
 
     // ── 탭 전환 ───────────────────────────────────────────
-    function showTab(name, el) {
+    function showTab(name) {
       document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
-      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
       document.getElementById('screen-' + name).classList.add('active');
-      el.classList.add('active');
+      // 하단 바 활성 상태
+      document.querySelectorAll('.bb-btn[data-tab]').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === name);
+      });
     }
+
+    // ── 지도 타입 (하단 바) ────────────────────────────────
+    function setMapType(type) {
+      isSatellite = (type === 'satellite');
+      map.setMapTypeId(isSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
+      document.getElementById('bb-normal').classList.toggle('active', !isSatellite);
+      document.getElementById('bb-satellite').classList.toggle('active', isSatellite);
+    }
+
+    // ── 줌 ─────────────────────────────────────────────────
+    function zoomIn()  { if (map) map.setZoom(map.getZoom() + 1); }
+    function zoomOut() { if (map) map.setZoom(map.getZoom() - 1); }
+
+    // 하단 바 이벤트
+    document.getElementById('bb-normal').addEventListener('click', function() { setMapType('normal'); showTab('map'); });
+    document.getElementById('bb-satellite').addEventListener('click', function() { setMapType('satellite'); showTab('map'); });
+    document.getElementById('bb-record').addEventListener('click', function() { showTab('mission'); });
+    document.getElementById('bb-zoom-in').addEventListener('click', zoomIn);
+    document.getElementById('bb-zoom-out').addEventListener('click', zoomOut);
+
+    // 기존 탭 이벤트 (이전 참조 제거)
+    // document.getElementById('tab-map') → 없음
+    // document.getElementById('tab-mission') → 없음
   </script>
+
+  <!-- ── 하단 컨트롤 바 ─────────────────────────────────── -->
+  <div class="bottom-bar">
+    <button class="bb-btn active" id="bb-normal" data-tab="map">
+      <span class="bb-zoom">🗺️</span>
+      <span>일반</span>
+    </button>
+    <div class="bb-sep"></div>
+    <button class="bb-btn" id="bb-satellite" data-tab="map">
+      <span class="bb-zoom">🛰️</span>
+      <span>위성</span>
+    </button>
+    <div class="bb-sep"></div>
+    <button class="bb-btn" id="bb-record" data-tab="mission">
+      <span class="bb-zoom">📋</span>
+      <span>기록</span>
+    </button>
+    <div class="bb-sep"></div>
+    <button class="bb-btn" id="bb-zoom-in">
+      <span class="bb-zoom" style="font-size:24px;font-weight:400">+</span>
+    </button>
+    <div class="bb-sep"></div>
+    <button class="bb-btn" id="bb-zoom-out">
+      <span class="bb-zoom" style="font-size:24px;font-weight:400">−</span>
+    </button>
+  </div>
 </body>
 </html>

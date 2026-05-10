@@ -130,6 +130,11 @@
       margin-top: 12px; min-height: 20px;
     }
 
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
     /* ── 모바일 하단 탭바 ────────────────────────────────── */
     .mobile-nav { display: none; }
 
@@ -529,74 +534,67 @@
 
       <!-- 참가자 현황 -->
       <div class="screen" id="screen-participants">
+        <!-- 헤더 -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div style="font-size:13px;color:#888" id="participants-program-info">백련산 생태 탐험 2026 · 지오캐싱</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-sm" onclick="renderParticipants()"><i class="ti ti-refresh"></i> 새로고침</button>
-            <button class="btn btn-sm btn-primary"><i class="ti ti-download"></i> CSV 내보내기</button>
-          </div>
-        </div>
-
-        <!-- 실시간 위치 지도 -->
-        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden;margin-bottom:20px">
-          <div style="padding:14px 18px;border-bottom:0.5px solid #f0efe8;display:flex;align-items:center;justify-content:space-between">
-            <div style="font-size:14px;font-weight:500">참가자 실시간 위치</div>
-            <div style="display:flex;gap:12px;align-items:center;font-size:12px;color:#888">
-              <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D9E75;margin-right:4px"></span>진행중</span>
-              <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#534AB7;margin-right:4px"></span>완주</span>
-              <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#aaa;margin-right:4px"></span>미시작</span>
+          <div>
+            <div style="font-size:15px;font-weight:500" id="participants-program-info">참가자 현황</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#1D9E75;animation:pulse 1.5s infinite"></span>
+              <span style="font-size:12px;color:#888">실시간 업데이트</span>
             </div>
           </div>
-          <div style="position:relative">
-            <button class="map-type-btn" id="monitor-map-type-btn">🛰️ 위성</button>
-            <div id="monitor-map" style="width:100%;height:360px"></div>
+          <div style="display:flex;gap:8px">
+            <input type="text" placeholder="이름 검색..." id="search-input" style="padding:7px 12px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;width:150px" oninput="filterParticipants()">
+            <button class="btn btn-sm btn-primary" onclick="exportCSV()"><i class="ti ti-download"></i> CSV</button>
           </div>
         </div>
 
         <!-- 통계 카드 -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
-            <div style="font-size:11px;color:#888;margin-bottom:4px">전체 참가자</div>
-            <div style="font-size:28px;font-weight:500">18</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">전체</div>
+            <div style="font-size:30px;font-weight:600;color:#2c2c2a" id="stat-p-total">0</div>
           </div>
-          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
-            <div style="font-size:11px;color:#888;margin-bottom:4px">진행 중</div>
-            <div style="font-size:28px;font-weight:500;color:#1D9E75">11</div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">진행 중</div>
+            <div style="font-size:30px;font-weight:600;color:#1D9E75" id="stat-p-progress">0</div>
           </div>
-          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
-            <div style="font-size:11px;color:#888;margin-bottom:4px">완주</div>
-            <div style="font-size:28px;font-weight:500;color:#534AB7">4</div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">완주</div>
+            <div style="font-size:30px;font-weight:600;color:#534AB7" id="stat-p-finished">0</div>
           </div>
-          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
-            <div style="font-size:11px;color:#888;margin-bottom:4px">미시작</div>
-            <div style="font-size:28px;font-weight:500;color:#aaa">3</div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">미시작</div>
+            <div style="font-size:30px;font-weight:600;color:#aaa" id="stat-p-notstarted">0</div>
           </div>
+        </div>
+
+        <!-- 실시간 위치 지도 -->
+        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden;margin-bottom:16px">
+          <div style="padding:12px 18px;border-bottom:0.5px solid #f0efe8;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:13px;font-weight:500">실시간 위치</div>
+            <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#aaa">
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#1D9E75;margin-right:4px"></span>진행중</span>
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#534AB7;margin-right:4px"></span>완주</span>
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#aaa;margin-right:4px"></span>미시작</span>
+              <button class="map-type-btn" id="monitor-map-type-btn" style="position:static;border-radius:6px;padding:4px 10px">🛰️ 위성</button>
+            </div>
+          </div>
+          <div id="monitor-map" style="width:100%;height:300px"></div>
         </div>
 
         <!-- 참가자 테이블 -->
         <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden">
-          <div style="padding:14px 18px;border-bottom:0.5px solid #f0efe8;display:flex;align-items:center;justify-content:space-between">
-            <div style="font-size:14px;font-weight:500">참가자 목록</div>
-            <input type="text" placeholder="이름 검색..." id="search-input" style="padding:6px 10px;border:0.5px solid #ddd;border-radius:6px;font-size:12px;width:160px" oninput="filterParticipants()">
+          <div style="padding:12px 18px;border-bottom:0.5px solid #f0efe8">
+            <div style="font-size:13px;font-weight:500">참가자 목록</div>
           </div>
           <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse" id="participants-table">
-              <thead>
-                <tr style="background:#f9f9f6;font-size:12px;color:#888">
-                  <th style="padding:10px 16px;text-align:left;font-weight:500">이름</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">출발</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP1</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP2</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP3</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP4</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP5</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP6</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP7</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP8</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP9</th>
-                  <th style="padding:10px 8px;text-align:center;font-weight:500">완주</th>
-                  <th style="padding:10px 16px;text-align:center;font-weight:500">완료</th>
-                  <th style="padding:10px 16px;text-align:center;font-weight:500">기록</th>
+            <table style="width:100%;border-collapse:collapse;min-width:500px" id="participants-table">
+              <thead id="participants-thead">
+                <tr style="background:#f9f9f6;font-size:11px;color:#aaa">
+                  <th style="padding:10px 16px;text-align:left;font-weight:500;white-space:nowrap">이름</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">완료 CP</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">기록</th>
                   <th style="padding:10px 16px;text-align:center;font-weight:500">상태</th>
                 </tr>
               </thead>
@@ -1595,79 +1593,127 @@
   }
 
   function updateParticipantStats() {
-    var total = liveParticipants.length;
-    var finished = liveParticipants.filter(function(p) { return p.status === 'finished'; }).length;
+    var total      = liveParticipants.length;
+    var finished   = liveParticipants.filter(function(p) { return p.status === 'finished'; }).length;
     var inProgress = liveParticipants.filter(function(p) { return p.status === 'in-progress'; }).length;
-    var notStarted = liveParticipants.filter(function(p) { return p.status === 'not-started'; }).length;
-    // 통계 카드 업데이트
-    var cards = document.querySelectorAll('#screen-participants [style*="font-size:28px"]');
-    if (cards.length >= 4) {
-      cards[0].textContent = total;
-      cards[1].textContent = inProgress;
-      cards[2].textContent = finished;
-      cards[3].textContent = notStarted;
-    }
+    var notStarted = liveParticipants.filter(function(p) { return p.status !== 'finished' && p.status !== 'in-progress'; }).length;
+    document.getElementById('stat-p-total').textContent      = total;
+    document.getElementById('stat-p-progress').textContent  = inProgress;
+    document.getElementById('stat-p-finished').textContent  = finished;
+    document.getElementById('stat-p-notstarted').textContent = notStarted;
   }
 
   function renderParticipants() {
     var prog = programs.find(function(p) { return p.id === currentProgId; });
-    var totalCPs = prog && prog.cps ? prog.cps.filter(function(c) { return c.type === 'normal'; }).length : 0;
+    var normalCPs = prog && prog.cps ? prog.cps.filter(function(c) { return c.type === 'normal'; }) : [];
+    var totalCPs = normalCPs.length;
     var keyword = document.getElementById('search-input') ? document.getElementById('search-input').value.trim() : '';
     var filtered = keyword
       ? liveParticipants.filter(function(p) { return p.name && p.name.includes(keyword); })
       : liveParticipants.slice();
+
+    // 상태별 정렬: 진행중 → 완주 → 미시작
+    filtered.sort(function(a, b) {
+      var order = { 'in-progress': 0, 'finished': 1 };
+      return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+    });
+
+    // 테이블 헤더 동적 생성
+    var thead = document.getElementById('participants-thead');
+    if (thead) {
+      var cpHeaders = normalCPs.map(function(cp) {
+        return '<th style="padding:10px 6px;text-align:center;font-weight:500;white-space:nowrap">' + cp.id + '</th>';
+      }).join('');
+      thead.innerHTML = '<tr style="background:#f9f9f6;font-size:11px;color:#aaa">' +
+        '<th style="padding:10px 16px;text-align:left;font-weight:500">이름</th>' +
+        cpHeaders +
+        '<th style="padding:10px 8px;text-align:center;font-weight:500">완료</th>' +
+        '<th style="padding:10px 8px;text-align:center;font-weight:500">기록</th>' +
+        '<th style="padding:10px 16px;text-align:center;font-weight:500">상태</th>' +
+        '</tr>';
+    }
+
     var tbody = document.getElementById('participants-body');
     if (!tbody) return;
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-      var emptyRow = document.createElement('tr');
-      emptyRow.innerHTML = '<td colspan="15" style="padding:24px;text-align:center;color:#888">참가자 데이터가 없습니다</td>';
-      tbody.appendChild(emptyRow);
+      tbody.innerHTML = '<tr><td colspan="20" style="padding:32px;text-align:center;color:#aaa;font-size:13px">참가자 데이터가 없습니다</td></tr>';
       return;
     }
+
     filtered.forEach(function(p) {
       var statusLabel = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
       var statusColor = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
       var statusBg    = p.status === 'finished' ? '#EEEDFE' : p.status === 'in-progress' ? '#E1F5EE' : '#f0efe8';
       var completedCPs = p.completedCPs || [];
       var completed = completedCPs.length;
-      var startedStr = '', finishedStr = '', elapsed = '';
-      if (p.startedAt) {
+      var elapsed = '-';
+      if (p.finishedAt && p.startedAt) {
         var sd = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
-        startedStr = sd.getHours().toString().padStart(2,'0') + ':' + sd.getMinutes().toString().padStart(2,'0');
-      }
-      if (p.finishedAt) {
         var fd = p.finishedAt.toDate ? p.finishedAt.toDate() : new Date(p.finishedAt);
-        finishedStr = fd.getHours().toString().padStart(2,'0') + ':' + fd.getMinutes().toString().padStart(2,'0');
-        if (p.startedAt) {
-          var sd2 = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
-          elapsed = Math.round((fd - sd2) / 60000) + '분';
-        }
-      } else if (p.startedAt) {
-        elapsed = '-';
+        var mins = Math.floor((fd - sd) / 60000);
+        elapsed = Math.floor(mins/60) > 0 ? Math.floor(mins/60) + 'h ' + (mins%60) + 'm' : mins + '분';
+      } else if (p.startedAt && p.status === 'in-progress') {
+        var sd2 = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
+        var nowMins = Math.floor((new Date() - sd2) / 60000);
+        elapsed = nowMins + '분 경과';
       }
-      // CP 셀 생성 (최대 9개)
-      var cpCells = '';
-      for (var ci = 0; ci < 9; ci++) {
-        var done = completedCPs.indexOf(ci) !== -1;
-        cpCells += '<td style="padding:10px 8px;text-align:center">' +
-          (done ? '<span style="color:#1D9E75;font-size:16px">✓</span>' : '<span style="color:#e0e0d8;font-size:16px">○</span>') +
+      // CP 체크 셀
+      var cpCells = normalCPs.map(function(cp, ci) {
+        // normalCPs의 원래 인덱스를 prog.cps 기준으로 찾기
+        var origIdx = prog.cps.indexOf(cp);
+        var done = completedCPs.indexOf(origIdx) !== -1;
+        return '<td style="padding:10px 6px;text-align:center">' +
+          (done
+            ? '<span style="color:#1D9E75;font-size:15px;font-weight:700">✓</span>'
+            : '<span style="color:#e0e0d8;font-size:13px">○</span>') +
           '</td>';
-      }
+      }).join('');
+
       var tr = document.createElement('tr');
-      tr.style.borderBottom = '0.5px solid #f0efe8';
-      tr.style.fontSize = '13px';
+      tr.style.cssText = 'border-bottom:0.5px solid #f5f5f0;font-size:13px;transition:background .1s';
+      tr.onmouseover = function() { this.style.background = '#fafaf8'; };
+      tr.onmouseout  = function() { this.style.background = ''; };
       tr.innerHTML =
-        '<td style="padding:12px 16px;font-weight:500">' + (p.name || '-') + '</td>' +
+        '<td style="padding:12px 16px;font-weight:500;white-space:nowrap">' +
+          '<div>' + (p.name || '-') + '</div>' +
+          '<div style="font-size:11px;color:#bbb;margin-top:1px">' + (p.phone || '') + '</div>' +
+        '</td>' +
         cpCells +
-        '<td style="padding:10px 16px;text-align:center;font-weight:500;color:#1D9E75">' + completed + '/' + totalCPs + '</td>' +
-        '<td style="padding:10px 16px;text-align:center;color:#888">' + (elapsed || '-') + '</td>' +
-        '<td style="padding:10px 16px;text-align:center"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 10px;border-radius:20px;font-size:11px;font-weight:500">' + statusLabel + '</span></td>';
+        '<td style="padding:10px 8px;text-align:center;font-weight:600;color:#085041">' + completed + '<span style="color:#ccc;font-weight:400">/' + totalCPs + '</span></td>' +
+        '<td style="padding:10px 8px;text-align:center;color:#888;white-space:nowrap">' + elapsed + '</td>' +
+        '<td style="padding:10px 16px;text-align:center"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500">' + statusLabel + '</span></td>';
       tbody.appendChild(tr);
     });
   }
 
   function filterParticipants() { renderParticipants(); }
+
+  function exportCSV() {
+    var prog = programs.find(function(p) { return p.id === currentProgId; });
+    var normalCPs = prog && prog.cps ? prog.cps.filter(function(c) { return c.type === 'normal'; }) : [];
+    var headers = ['이름', '전화번호'].concat(normalCPs.map(function(c) { return c.id; })).concat(['완료CP', '기록', '상태']);
+    var rows = liveParticipants.map(function(p) {
+      var completedCPs = p.completedCPs || [];
+      var elapsed = '-';
+      if (p.finishedAt && p.startedAt) {
+        var sd = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
+        var fd = p.finishedAt.toDate ? p.finishedAt.toDate() : new Date(p.finishedAt);
+        elapsed = Math.floor((fd - sd) / 60000) + '분';
+      }
+      var cpVals = normalCPs.map(function(cp) {
+        var origIdx = prog.cps.indexOf(cp);
+        return completedCPs.indexOf(origIdx) !== -1 ? 'O' : 'X';
+      });
+      var status = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
+      return [p.name || '', p.phone || ''].concat(cpVals).concat([completedCPs.length, elapsed, status]);
+    });
+    var csv = '﻿' + [headers].concat(rows).map(function(r) { return r.join(','); }).join('\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = (prog ? prog.name : '참가자') + '_' + new Date().toLocaleDateString('ko') + '.csv';
+    a.click();
+  }
 
   // ── 통계 ──────────────────────────────────────────────────
   function renderStats() {

@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>플레이아웃사이드 GPS 미션</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1D9E75">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GPS 미션">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -1202,6 +1209,13 @@
     document.getElementById('bb-record').addEventListener('click', function() { showTab('mission'); });
     document.getElementById('bb-zoom-in').addEventListener('click', function() { if (map) map.setZoom(map.getZoom() + 1); });
     document.getElementById('bb-zoom-out').addEventListener('click', function() { if (map) map.setZoom(map.getZoom() - 1); });
+
+    // PWA 서비스워커 등록
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js').catch(function(e) {
+        console.log('SW 등록 실패:', e);
+      });
+    }
   </script>
 </body>
 </html>

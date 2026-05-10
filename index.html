@@ -203,12 +203,61 @@
 
     /* 팀원 마커 */
     .team-dot { background:#FF6B35; color:white; border-radius:20px; padding:3px 9px; font-size:11px; font-weight:600; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap; }
+
+    /* ── 프로그램 선택 화면 ──────────────────────────────── */
+    #select-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: linear-gradient(180deg, #085041 0%, #0a3a30 100%);
+      display: none; flex-direction: column; padding: 32px 16px 24px;
+      overflow-y: auto;
+    }
+    #select-overlay.show { display: flex; }
+    .sel-header { text-align: center; margin-bottom: 28px; }
+    .sel-logo { width: 64px; height: 64px; margin: 0 auto 12px; background: white; border-radius: 16px; padding: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .sel-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .sel-title { font-size: 20px; font-weight: 600; color: white; margin-bottom: 4px; }
+    .sel-subtitle { font-size: 13px; color: rgba(255,255,255,0.6); }
+    .sel-section-title { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 4px 10px; }
+    .sel-list { display: flex; flex-direction: column; gap: 10px; }
+    .sel-card {
+      background: white; border-radius: 14px; padding: 16px 18px;
+      cursor: pointer; transition: transform .12s, box-shadow .12s;
+      border: 2px solid transparent;
+    }
+    .sel-card:active { transform: scale(0.98); }
+    .sel-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .sel-card-name { font-size: 15px; font-weight: 600; color: #1a1a18; }
+    .sel-card-mode { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .sel-card-meta { font-size: 12px; color: #888; }
+    .sel-card-meta + .sel-card-meta { margin-top: 2px; }
+    .sel-empty {
+      text-align: center; padding: 40px 20px;
+      color: rgba(255,255,255,0.6); font-size: 13px;
+      background: rgba(255,255,255,0.05); border-radius: 14px;
+    }
+    .sel-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
   </style>
 </head>
 <body>
 
+  <!-- 프로그램 선택 화면 -->
+  <div id="select-overlay" class="show">
+    <div class="sel-header">
+      <div class="sel-logo"><img src="logo.png" alt="플레이아웃사이드"></div>
+      <div class="sel-title">플레이아웃사이드 GPS</div>
+      <div class="sel-subtitle">참여하실 프로그램을 선택해주세요</div>
+    </div>
+    <div class="sel-section-title">진행 중인 프로그램</div>
+    <div class="sel-list" id="sel-list">
+      <div class="sel-empty">
+        <div class="sel-empty-icon">⏳</div>
+        <div>프로그램 불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- 로그인 오버레이 -->
-  <div id="login-overlay" class="overlay">
+  <div id="login-overlay" class="overlay" style="display:none">
     <div class="overlay-box">
       <h2>미션 시작하기</h2>
       <p>이름과 전화번호 뒷자리를 입력해주세요</p>
@@ -395,23 +444,69 @@
     document.getElementById('login-btn').disabled = true;
     document.getElementById('login-btn').textContent = '프로그램 불러오는 중...';
 
-    // ── Firestore에서 활성 프로그램 로드 ─────────────────
-    db.collection('config').doc('active').get().then(function(configDoc) {
-      if (!configDoc.exists || !configDoc.data().programId) {
-        // 활성 프로그램 없음 → 기본 CP 사용
-        enableLogin();
+    // ── 공개된 프로그램 목록 로드 → 선택 화면 표시 ────────
+    var availablePrograms = [];
+
+    function loadPublishedPrograms() {
+      db.collection('programs').where('published', '==', true).get().then(function(snap) {
+        availablePrograms = [];
+        snap.forEach(function(doc) {
+          availablePrograms.push(Object.assign({ id: doc.id }, doc.data()));
+        });
+        renderProgramSelection();
+      }).catch(function(err) {
+        console.error('프로그램 목록 로드 오류:', err);
+        document.getElementById('sel-list').innerHTML =
+          '<div class="sel-empty"><div class="sel-empty-icon">⚠️</div>' +
+          '<div>프로그램을 불러올 수 없습니다</div>' +
+          '<div style="font-size:11px;margin-top:6px;opacity:0.6">' + err.message + '</div></div>';
+      });
+    }
+
+    function renderProgramSelection() {
+      var list = document.getElementById('sel-list');
+      if (availablePrograms.length === 0) {
+        list.innerHTML =
+          '<div class="sel-empty"><div class="sel-empty-icon">📭</div>' +
+          '<div>현재 진행 중인 프로그램이 없습니다</div>' +
+          '<div style="font-size:11px;margin-top:6px;opacity:0.6">관리자가 공개하면 여기에 표시됩니다</div></div>';
         return;
       }
-      currentProgId = configDoc.data().programId;
-      return db.collection('programs').doc(currentProgId).get();
-    }).then(function(progDoc) {
-      if (!progDoc || !progDoc.exists) { enableLogin(); return; }
-      var prog = progDoc.data();
-      currentProgName = prog.name || currentProgName;
-      currentProgMode = prog.mode || null;
+
+      var modeColors = {
+        geocaching:   { bg:'#E1F5EE', color:'#0F6E56', name:'지오캐싱' },
+        orienteering: { bg:'#EEEDFE', color:'#534AB7', name:'오리엔티어링' },
+        hiking:       { bg:'#FAEEDA', color:'#633806', name:'하이킹' }
+      };
+
+      list.innerHTML = '';
+      availablePrograms.forEach(function(prog) {
+        var dateStr = prog.date ? new Date(prog.date).toLocaleDateString('ko-KR') : '';
+        var location = prog.location || '';
+        var modeInfo = modeColors[prog.mode] || { bg:'#f0f0ec', color:'#888', name:prog.mode||'' };
+        var cpCount = prog.cps ? prog.cps.filter(function(c) { return c.type === 'normal'; }).length : 0;
+
+        var card = document.createElement('div');
+        card.className = 'sel-card';
+        card.innerHTML =
+          '<div class="sel-card-top">' +
+            '<div class="sel-card-name">' + (prog.name || '이름 없음') + '</div>' +
+            '<div class="sel-card-mode" style="background:' + modeInfo.bg + ';color:' + modeInfo.color + '">' + modeInfo.name + '</div>' +
+          '</div>' +
+          (location || dateStr ? '<div class="sel-card-meta">' + [location, dateStr].filter(Boolean).join(' · ') + '</div>' : '') +
+          '<div class="sel-card-meta">CP ' + cpCount + '개' + (prog.manager ? ' · 담당 ' + prog.manager : '') + '</div>';
+        card.addEventListener('click', function() { selectProgram(prog); });
+        list.appendChild(card);
+      });
+    }
+
+    function selectProgram(prog) {
+      currentProgId       = prog.id;
+      currentProgName     = prog.name || currentProgName;
+      currentProgMode     = prog.mode || null;
       currentModeSettings = prog.modeSettings || {};
-      // 하이킹 GPX 경로 로드
-      gpxRoute = (prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
+      gpxRoute            = (prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
+
       if (prog.cps && prog.cps.length > 0) {
         checkpoints = prog.cps.map(function(cp) {
           return {
@@ -429,12 +524,13 @@
         totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
         document.getElementById('score-total').textContent = totalNormalCPs;
       }
+
+      // 선택 화면 닫고 로그인 화면 표시
+      document.getElementById('select-overlay').classList.remove('show');
+      document.getElementById('select-overlay').style.display = 'none';
+      document.getElementById('login-overlay').style.display = 'flex';
       enableLogin();
-    }).catch(function(err) {
-      console.error('Firestore 프로그램 로드 오류:', err);
-      // 오프라인 등 오류 시 기본 CP로 폴백
-      enableLogin();
-    });
+    }
 
     function enableLogin() {
       var btn = document.getElementById('login-btn');
@@ -442,6 +538,9 @@
       btn.textContent = '시작하기';
       document.getElementById('score-total').textContent = totalNormalCPs;
     }
+
+    // 시작
+    loadPublishedPrograms();
 
     // ── 출발·도착 같은 위치 여부 ─────────────────────────
     var startCP = checkpoints.find(function(c) { return c.type === 'start'; });

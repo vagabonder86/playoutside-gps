@@ -1020,6 +1020,7 @@
     } else {
       // ── 신규 프로그램 생성 ─────────────────────────────
       progData.cps       = [];
+      progData.published = false;  // 신규 프로그램은 비공개로 시작
       progData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       db.collection('programs').add(progData).then(function(docRef) {
         btn.disabled = false;
@@ -1039,18 +1040,17 @@
     grid.innerHTML = '';
     if (programs.length === 0) { empty.style.display = 'block'; return; }
     empty.style.display = 'none';
-    var activeId = localStorage.getItem('po-active-id') || '';
     programs.forEach(function(prog) {
       var badge = modeBadge[prog.mode] || 'badge-gray';
       var dateStr = prog.date ? new Date(prog.date).toLocaleDateString('ko-KR') : '날짜 미정';
-      var isActive = prog.id === activeId;
+      var isPublished = prog.published === true;
       var card = document.createElement('div');
       card.className = 'prog-card';
-      if (isActive) card.style.outline = '2px solid #1D9E75';
+      if (isPublished) card.style.outline = '2px solid #1D9E75';
       card.innerHTML =
         '<div class="prog-card-header">' +
           '<div style="flex:1;min-width:0"><div class="prog-card-title">' + prog.name +
-            (isActive ? ' <span style="font-size:10px;background:#1D9E75;color:white;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">▶ 실행 중</span>' : '') +
+            (isPublished ? ' <span style="font-size:10px;background:#1D9E75;color:white;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">● 공개 중</span>' : '') +
           '</div>' +
           '<div class="prog-card-meta">' + (prog.location||'장소 미정') + ' · ' + dateStr + (prog.manager ? ' · ' + prog.manager : '') + '</div></div>' +
           '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
@@ -1065,8 +1065,13 @@
         '</div>' +
         '<div class="prog-card-footer" style="flex-direction:column;gap:8px">' +
           '<div style="display:flex;gap:6px;align-items:center">' +
-            '<button class="btn btn-sm activate-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;' + (isActive ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : '') + '">' +
-              '<i class="ti ti-player-play"></i> ' + (isActive ? '실행 중' : '참가자에 적용') + '</button>' +
+            '<button class="btn btn-sm publish-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;' +
+              (isPublished
+                ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;'
+                : 'background:white;color:#888;border-color:#ddd;') + '">' +
+              (isPublished
+                ? '<i class="ti ti-eye"></i> 공개 중 (탭하여 비공개)'
+                : '<i class="ti ti-eye-off"></i> 비공개 (탭하여 공개)') + '</button>' +
             '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-map-pin"></i> CP 편집</button>' +
             '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '" style="flex-shrink:0"><i class="ti ti-trash"></i></button>' +
           '</div>' +
@@ -1075,23 +1080,22 @@
         '</div>';
       grid.appendChild(card);
     });
-    document.querySelectorAll('.activate-btn').forEach(function(btn) {
+    document.querySelectorAll('.publish-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var id = btn.dataset.id;
         var prog = programs.find(function(p) { return p.id === id; });
         if (!prog) return;
-        if (!(prog.cps && prog.cps.length > 0)) {
+        var nowPublished = !(prog.published === true);
+        if (nowPublished && !(prog.cps && prog.cps.length > 0)) {
           alert('CP가 없습니다. 먼저 CP를 편집하고 저장해주세요.');
           return;
         }
-        // Firestore config/active에 활성 프로그램 저장
-        db.collection('config').doc('active').set({ programId: id }).then(function() {
-          localStorage.setItem('po-active-id', id);
+        db.collection('programs').doc(id).update({ published: nowPublished }).then(function() {
+          // onSnapshot으로 자동 갱신되지만 즉시 반영을 위해 호출
           renderPrograms();
-          alert('✅ "' + prog.name + '" 이 참가자 앱에 적용됐습니다!\nindex.html을 새로고침하면 이 프로그램의 CP로 시작합니다.');
         }).catch(function(err) {
-          console.error('활성 프로그램 설정 오류:', err);
-          alert('적용 중 오류가 발생했습니다: ' + err.message);
+          console.error('공개 상태 변경 오류:', err);
+          alert('변경 중 오류가 발생했습니다: ' + err.message);
         });
       });
     });

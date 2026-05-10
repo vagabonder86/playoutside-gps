@@ -57,26 +57,63 @@
     #map-type-btn:hover { background: #f5f5f0; }
 
     /* ── 하이킹 모드 오버레이 UI ──────────────────────── */
+
+    /* 상단 스탯 스트립 */
     #hike-top-overlay { display:none; position:absolute; top:0; left:0; right:0; z-index:300; pointer-events:none; }
-    #hike-stats-bar { background:rgba(8,80,65,0.92); backdrop-filter:blur(6px); padding:8px 16px; display:flex; justify-content:space-around; align-items:center; pointer-events:auto; }
-    .h-stat { text-align:center; min-width:60px; }
-    .h-stat-v { font-size:15px; font-weight:700; color:white; line-height:1.1; }
-    .h-stat-l { font-size:9px; color:rgba(255,255,255,0.6); margin-top:2px; letter-spacing:0.04em; }
-    .h-divider { width:0.5px; height:28px; background:rgba(255,255,255,0.2); }
-    #hike-progress-wrap { background:rgba(8,80,65,0.82); padding:5px 16px 8px; pointer-events:auto; }
-    .hike-pb { height:4px; background:rgba(255,255,255,0.2); border-radius:2px; overflow:hidden; margin-bottom:4px; }
-    .hike-pb-fill { height:100%; background:#5DCAA5; border-radius:2px; transition:width 0.6s ease; width:0%; }
-    .hike-pb-row { display:flex; justify-content:space-between; align-items:center; }
-    .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.7); }
+    #hike-stats-bar {
+      background:rgba(8,60,48,0.88); backdrop-filter:blur(8px);
+      padding:0 16px;
+      height:40px; display:flex; align-items:center; gap:0;
+      pointer-events:auto;
+    }
+    .h-stat { display:flex; align-items:baseline; gap:3px; flex:1; justify-content:center; }
+    .h-stat-v { font-size:16px; font-weight:700; color:white; }
+    .h-stat-l { font-size:10px; color:rgba(255,255,255,0.5); }
+    .h-divider { width:0.5px; height:16px; background:rgba(255,255,255,0.2); flex-shrink:0; }
 
-    #next-cp-banner { display:none; position:absolute; bottom:80px; left:12px; right:68px; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); color:white; border-radius:14px; padding:10px 14px; z-index:400; }
-    .next-cp-name { font-size:11px; color:rgba(255,255,255,0.6); margin-bottom:2px; }
-    .next-cp-dir { font-size:17px; font-weight:700; color:#5DCAA5; }
-    .next-cp-dist { font-size:13px; color:rgba(255,255,255,0.85); margin-top:1px; }
+    /* 진행률 바 (3px 슬림) */
+    #hike-progress-wrap { pointer-events:auto; position:relative; }
+    .hike-pb { height:3px; background:rgba(255,255,255,0.15); overflow:hidden; }
+    .hike-pb-fill { height:100%; background:#5DCAA5; transition:width 0.8s ease; width:0%; }
+    .hike-pb-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:3px 14px 4px;
+      background:rgba(8,60,48,0.72); backdrop-filter:blur(4px);
+    }
+    .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.65); }
 
-    #emergency-btn { display:none; position:absolute; bottom:80px; right:12px; z-index:500; width:48px; height:48px; background:#E53E3E; border:2.5px solid white; border-radius:50%; font-size:22px; cursor:pointer; box-shadow:0 3px 12px rgba(229,62,62,0.55); justify-content:center; align-items:center; }
-    #emergency-btn:active { background:#C53030; transform:scale(0.95); }
-    .off-trail-warn { background:#E53E3E !important; }
+    /* 다음 CP 배너 (하단) */
+    #next-cp-banner {
+      display:none; position:absolute; bottom:16px; left:12px; right:12px;
+      background:rgba(10,10,10,0.82); backdrop-filter:blur(10px);
+      color:white; border-radius:16px; z-index:400;
+      display:none; flex-direction:row; align-items:center;
+      padding:10px 16px; gap:12px;
+    }
+    .next-cp-arrow {
+      font-size:36px; font-weight:900; color:#5DCAA5; line-height:1;
+      flex-shrink:0; width:44px; text-align:center;
+    }
+    .next-cp-body { flex:1; min-width:0; }
+    .next-cp-label { font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:1px; }
+    .next-cp-name  { font-size:14px; font-weight:600; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .next-cp-sub   { font-size:11px; color:rgba(255,255,255,0.55); margin-top:1px; }
+    .next-cp-dist-big { font-size:22px; font-weight:700; color:#5DCAA5; flex-shrink:0; text-align:right; line-height:1; }
+    .next-cp-dist-unit { font-size:11px; color:rgba(255,255,255,0.5); text-align:right; margin-top:2px; }
+    .off-trail-warn { background:rgba(180,30,30,0.88) !important; }
+
+    /* 비상 연락처 버튼 */
+    #emergency-btn {
+      display:none; position:absolute; bottom:90px; right:14px; z-index:500;
+      width:44px; height:44px; background:#E53E3E; border:2px solid white;
+      border-radius:50%; font-size:20px; cursor:pointer;
+      box-shadow:0 3px 10px rgba(229,62,62,0.5);
+      justify-content:center; align-items:center;
+    }
+    #emergency-btn:active { transform:scale(0.93); }
+
+    /* 현재 위치 버튼 위치 조정 (배너 위로) */
+    #locate-btn { bottom: 90px; }
 
     /* 팀원 마커 */
     .team-dot { background:#FF6B35; color:white; border-radius:20px; padding:3px 9px; font-size:11px; font-weight:600; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap; }
@@ -150,34 +187,41 @@
   <div id="screen-map" class="screen active" style="position:relative">
     <div id="map"></div>
 
-    <!-- 하이킹 모드 상단 오버레이 (통계 + 진행률) -->
+    <!-- 하이킹 모드 상단 스탯 스트립 -->
     <div id="hike-top-overlay">
       <div id="hike-stats-bar">
-        <div class="h-stat"><div class="h-stat-v" id="hike-dist">0.0</div><div class="h-stat-l">이동 km</div></div>
+        <div class="h-stat"><span class="h-stat-v" id="hike-dist">0.00</span><span class="h-stat-l">km</span></div>
         <div class="h-divider"></div>
-        <div class="h-stat"><div class="h-stat-v" id="hike-alt">-</div><div class="h-stat-l">고도 m</div></div>
+        <div class="h-stat"><span class="h-stat-v" id="hike-alt">-</span><span class="h-stat-l">m</span></div>
         <div class="h-divider"></div>
-        <div class="h-stat"><div class="h-stat-v" id="hike-speed">-</div><div class="h-stat-l">속도 km/h</div></div>
+        <div class="h-stat"><span class="h-stat-v" id="hike-speed">-</span><span class="h-stat-l">km/h</span></div>
         <div class="h-divider"></div>
-        <div class="h-stat"><div class="h-stat-v" id="hike-eta">-</div><div class="h-stat-l">예상도착</div></div>
+        <div class="h-stat"><span class="h-stat-v" id="hike-eta">--:--</span><span class="h-stat-l">도착</span></div>
       </div>
       <div id="hike-progress-wrap">
         <div class="hike-pb"><div class="hike-pb-fill" id="hike-pb-fill"></div></div>
         <div class="hike-pb-row">
           <div class="hike-pb-label">CP <span id="hike-cp-done">0</span>/<span id="hike-cp-total">0</span> 완료</div>
-          <div class="hike-pb-label" id="hike-remain-label">경로 남은 거리 -</div>
+          <div class="hike-pb-label" id="hike-remain-label"></div>
         </div>
       </div>
     </div>
 
-    <!-- 다음 CP 배너 (지도 하단) -->
+    <!-- 다음 CP 배너 (하단 콤팩트) -->
     <div id="next-cp-banner">
-      <div class="next-cp-name" id="next-cp-label">다음 체크포인트</div>
-      <div class="next-cp-dir" id="next-cp-dir">-</div>
-      <div class="next-cp-dist" id="next-cp-dist">위치 확인 중...</div>
+      <div class="next-cp-arrow" id="next-cp-arrow">↑</div>
+      <div class="next-cp-body">
+        <div class="next-cp-label" id="next-cp-label">다음 체크포인트</div>
+        <div class="next-cp-name" id="next-cp-name-text">-</div>
+        <div class="next-cp-sub" id="next-cp-dir">방향 확인 중</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="next-cp-dist-big" id="next-cp-dist">-</div>
+        <div class="next-cp-dist-unit" id="next-cp-unit">앞</div>
+      </div>
     </div>
 
-    <!-- 비상 연락처 버튼 -->
+    <!-- 비상 연락처 -->
     <button id="emergency-btn" title="비상 연락처">🆘</button>
 
     <button id="locate-btn">📍</button>
@@ -932,38 +976,46 @@
     function updateNextCPBanner(lat, lng) {
       var target = null;
       var label  = '다음 체크포인트';
+      var nameText = '';
 
       if (!started) {
-        // 아직 출발 전: 출발 지점 안내
-        target = checkpoints.find(function(c) { return c.type === 'start'; });
-        label  = '🚩 출발 지점으로 이동하세요';
+        target   = checkpoints.find(function(c) { return c.type === 'start'; });
+        label    = '출발 지점으로 이동';
+        nameText = '🚩 GPS 반경 진입 시 자동 인증';
       } else if (!ended) {
-        // 진행 중: 첫 번째 미완료 normal CP
         checkpoints.forEach(function(cp, i) {
           if (target) return;
-          if (cp.type === 'normal' && !completedCPs.has(i)) { target = cp; label = '📍 ' + cp.name; }
+          if (cp.type === 'normal' && !completedCPs.has(i)) { target = cp; nameText = cp.name; label = '다음 체크포인트'; }
         });
-        // 모든 미션 완료 → 도착 지점
         if (!target) {
-          target = checkpoints.find(function(c) { return c.type === 'end'; });
-          label  = '🏁 도착 지점으로 이동하세요';
+          target   = checkpoints.find(function(c) { return c.type === 'end'; });
+          label    = '도착 지점으로 이동';
+          nameText = '🏁 GPS 반경 진입 시 자동 완료';
         }
       } else {
-        document.getElementById('next-cp-label').textContent = '🏆 완주 완료!';
-        document.getElementById('next-cp-dir').textContent   = '수고하셨습니다';
-        document.getElementById('next-cp-dist').textContent  = '';
+        document.getElementById('next-cp-arrow').textContent      = '🏆';
+        document.getElementById('next-cp-label').textContent      = '완주 완료!';
+        document.getElementById('next-cp-name-text').textContent  = '수고하셨습니다';
+        document.getElementById('next-cp-dir').textContent        = '';
+        document.getElementById('next-cp-dist').textContent       = '';
+        document.getElementById('next-cp-unit').textContent       = '';
         return;
       }
 
       if (!target) return;
       var dist    = getDistance(lat, lng, target.lat, target.lng);
       var bearing = getBearing(lat, lng, target.lat, target.lng);
-      var distStr = dist >= 1000 ? (dist/1000).toFixed(1) + 'km' : Math.round(dist) + 'm';
+      // 거리: 1km 이상이면 소수 1자리 km, 미만이면 정수 m
+      var distNum, distUnit;
+      if (dist >= 1000) { distNum = (dist/1000).toFixed(1); distUnit = 'km 앞'; }
+      else               { distNum = Math.round(dist) + ''; distUnit = 'm 앞'; }
 
-      document.getElementById('next-cp-label').textContent = label;
-      document.getElementById('next-cp-dir').textContent   =
-        bearingToKorean(bearing) + ' ' + bearingToArrow(bearing);
-      document.getElementById('next-cp-dist').textContent  = distStr + ' 앞';
+      document.getElementById('next-cp-arrow').textContent      = bearingToArrow(bearing);
+      document.getElementById('next-cp-label').textContent      = label;
+      document.getElementById('next-cp-name-text').textContent  = nameText;
+      document.getElementById('next-cp-dir').textContent        = bearingToKorean(bearing) + ' 방향';
+      document.getElementById('next-cp-dist').textContent       = distNum;
+      document.getElementById('next-cp-unit').textContent       = distUnit;
     }
 
     // 팀원 위치 실시간 구독

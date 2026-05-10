@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>플레이아웃사이드 관리자</title>
+  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: #f5f5f0; color: #2c2c2a; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 220px; background: #085041; color: white; flex-shrink: 0; display: flex; flex-direction: column; }
+    .sidebar-logo { padding: 24px 20px 16px; border-bottom: 0.5px solid rgba(255,255,255,0.1); }
+    .sidebar-logo h1 { font-size: 15px; font-weight: 500; }
+    .sidebar-logo p { font-size: 11px; opacity: 0.6; margin-top: 3px; }
+    .sidebar-menu { padding: 12px 0; flex: 1; }
+    .menu-section { font-size: 10px; opacity: 0.5; letter-spacing: .08em; padding: 12px 20px 4px; }
+    .menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13px; cursor: pointer; opacity: 0.75; border-left: 3px solid transparent; }
+    .menu-item:hover { opacity: 1; background: rgba(255,255,255,0.07); }
+    .menu-item.active { opacity: 1; background: rgba(255,255,255,0.12); border-left-color: #5DCAA5; }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { background: white; border-bottom: 0.5px solid #e0e0d8; padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .topbar-title { font-size: 15px; font-weight: 500; }
+    .content { padding: 24px; flex: 1; overflow-y: auto; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: 0.5px solid #ddd; background: white; font-size: 13px; cursor: pointer; color: #2c2c2a; }
+    .btn:hover { background: #f5f5f0; }
+    .btn-primary { background: #1D9E75; color: white; border-color: #1D9E75; }
+    .btn-primary:hover { background: #0F6E56; }
+    .btn-danger { color: #A32D2D; border-color: #f5c4c4; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+    .badge-green { background: #E1F5EE; color: #0F6E56; }
+    .badge-purple { background: #EEEDFE; color: #534AB7; }
+    .badge-amber { background: #FAEEDA; color: #633806; }
+
+    .prog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .prog-card { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; overflow: hidden; }
+    .prog-card-header { padding: 16px 18px; border-bottom: 0.5px solid #f0efe8; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .prog-card-title { font-size: 14px; font-weight: 500; }
+    .prog-card-meta { font-size: 12px; color: #888; margin-top: 4px; }
+    .prog-card-body { padding: 14px 18px; display: flex; justify-content: space-between; }
+    .prog-stat { text-align: center; }
+    .prog-stat-value { font-size: 20px; font-weight: 500; color: #1D9E75; }
+    .prog-stat-label { font-size: 11px; color: #888; margin-top: 2px; }
+    .prog-card-footer { padding: 12px 18px; border-top: 0.5px solid #f0efe8; display: flex; gap: 8px; }
+
+    .form-card { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; padding: 24px; max-width: 600px; }
+    .form-title { font-size: 16px; font-weight: 500; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 0.5px solid #f0efe8; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { font-size: 12px; color: #888; display: block; margin-bottom: 6px; font-weight: 500; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 14px; color: #2c2c2a; background: white; }
+    .form-group textarea { height: 80px; resize: none; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .mode-option { border: 0.5px solid #ddd; border-radius: 10px; padding: 14px 12px; cursor: pointer; text-align: center; }
+    .mode-option.selected { border: 2px solid #1D9E75; background: #E1F5EE; }
+    .mode-option-icon { font-size: 22px; margin-bottom: 6px; }
+    .mode-option-name { font-size: 13px; font-weight: 500; }
+    .mode-option-desc { font-size: 11px; color: #888; margin-top: 3px; line-height: 1.4; }
+    .mode-settings { margin-top: 4px; padding: 16px; background: #f9f9f6; border-radius: 10px; border: 0.5px solid #e0e0d8; }
+
+    .cp-editor { display: grid; grid-template-columns: 1fr 340px; gap: 16px; height: calc(100vh - 100px); }
+    .cp-map-wrap { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; overflow: hidden; position: relative; }
+    #admin-map { width: 100%; height: 100%; }
+    .cp-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    .cp-panel-card { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; padding: 16px; }
+    .cp-panel-title { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1D9E75; }
+    .cp-list-item { display: flex; align-items: center; gap: 10px; padding: 10px; border: 0.5px solid #e0e0d8; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+    .cp-list-item:hover { border-color: #1D9E75; }
+    .cp-list-item.selected { border-color: #1D9E75; background: #E1F5EE; }
+    .cp-num { width: 28px; height: 28px; border-radius: 50%; background: #EEEDFE; color: #534AB7; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+    .cp-num.start { background: #E1F5EE; color: #0F6E56; }
+    .cp-num.end { background: #FAECE7; color: #712B13; }
+    .cp-item-name { flex: 1; font-size: 13px; font-weight: 500; }
+    .cp-item-type { font-size: 11px; color: #888; }
+    .cp-form { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; padding: 16px; }
+    .cp-form label { font-size: 11px; color: #888; display: block; margin-bottom: 4px; font-weight: 500; }
+    .cp-form input, .cp-form select, .cp-form textarea { width: 100%; padding: 8px 10px; border: 0.5px solid #ddd; border-radius: 6px; font-size: 13px; margin-bottom: 10px; color: #2c2c2a; }
+    .cp-form textarea { height: 64px; resize: none; }
+    .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .map-tip { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.65); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; z-index: 10; }
+    .map-type-btn { position: absolute; top: 12px; right: 12px; z-index: 10; padding: 6px 12px; background: white; border: 0.5px solid #ddd; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    .map-type-btn:hover { background: #f5f5f0; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 20px; }
+    .modal { background: white; border-radius: 16px; padding: 28px 24px; max-width: 360px; width: 100%; }
+    .modal h3 { font-size: 17px; font-weight: 500; margin-bottom: 8px; }
+    .modal p { font-size: 13px; color: #888; line-height: 1.6; margin-bottom: 20px; }
+    .modal-btns { display: flex; gap: 8px; }
+    .modal-btns .btn { flex: 1; justify-content: center; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <h1>🌿 플레이아웃사이드</h1>
+      <p>관리자 페이지</p>
+    </div>
+    <div class="sidebar-menu">
+      <div class="menu-section">프로그램</div>
+      <div class="menu-item active" id="menu-programs"><i class="ti ti-layout-grid"></i> 프로그램 목록</div>
+      <div class="menu-item" id="menu-new"><i class="ti ti-plus"></i> 새 프로그램</div>
+      <div class="menu-section">운영</div>
+      <div class="menu-item" id="menu-participants"><i class="ti ti-users"></i> 참가자 현황</div>
+      <div class="menu-item" id="menu-stats"><i class="ti ti-chart-bar"></i> 통계</div>
+    </div>
+    <div style="padding:16px 20px;border-top:0.5px solid rgba(255,255,255,0.1)">
+      <div style="font-size:11px;opacity:0.5">playoutside.co.kr</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-sm" id="back-btn" style="display:none">
+          <i class="ti ti-arrow-left"></i> 뒤로
+        </button>
+        <div class="topbar-title" id="topbar-title">프로그램 목록</div>
+      </div>
+      <button class="btn btn-primary" id="topbar-new-btn">
+        <i class="ti ti-plus"></i> 새 프로그램
+      </button>
+    </div>
+
+    <div class="content">
+
+      <!-- 프로그램 목록 -->
+      <div class="screen active" id="screen-programs">
+        <div class="prog-grid" id="prog-grid"></div>
+        <div id="empty-state" style="display:none;text-align:center;padding:60px 20px">
+          <div style="font-size:48px;margin-bottom:16px">📋</div>
+          <div style="font-size:15px;margin-bottom:8px;color:#888">프로그램이 없습니다</div>
+          <button class="btn btn-primary" id="empty-new-btn" style="margin-top:8px">
+            <i class="ti ti-plus"></i> 새 프로그램 만들기
+          </button>
+        </div>
+      </div>
+
+      <!-- 새 프로그램 -->
+      <div class="screen" id="screen-new-program">
+        <div class="form-card">
+          <div class="form-title">새 프로그램 만들기</div>
+          <div class="form-group">
+            <label>프로그램 이름 *</label>
+            <input type="text" id="prog-name" placeholder="예: 백련산 생태 탐험 2026">
+          </div>
+          <div class="form-group">
+            <label>장소</label>
+            <input type="text" id="prog-location" placeholder="예: 서울 은평구 백련산">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>활동 날짜</label>
+              <input type="date" id="prog-date">
+            </div>
+            <div class="form-group">
+              <label>제한 시간 (분)</label>
+              <input type="number" id="prog-time" placeholder="90" min="10">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>참가자 수</label>
+              <input type="number" id="prog-participants" placeholder="예) 30" min="1">
+            </div>
+            <div class="form-group">
+              <label>담당자</label>
+              <input type="text" id="prog-manager" placeholder="예) 최용모">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>설명</label>
+            <textarea id="prog-desc" placeholder="프로그램 설명을 입력하세요"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>운영 방식 *</label>
+            <div class="mode-grid">
+              <div class="mode-option selected" data-mode="geocaching">
+                <div class="mode-option-icon">🗺️</div>
+                <div class="mode-option-name">지오캐싱</div>
+                <div class="mode-option-desc">전체 CP 공개, 자유 순서, 점수 경쟁</div>
+              </div>
+              <div class="mode-option" data-mode="orienteering">
+                <div class="mode-option-icon">🧭</div>
+                <div class="mode-option-name">오리엔티어링</div>
+                <div class="mode-option-desc">랜덤 시작 CP, 완주 시간 경쟁</div>
+              </div>
+              <div class="mode-option" data-mode="hiking">
+                <div class="mode-option-icon">🥾</div>
+                <div class="mode-option-name">하이킹</div>
+                <div class="mode-option-desc">순차 이동, 단체 안전 관리</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 지오캐싱 설정 -->
+          <div id="settings-geocaching" class="mode-settings">
+            <div style="font-size:12px;font-weight:500;color:#1D9E75;margin-bottom:12px">🗺️ 지오캐싱 설정</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>CP별 기본 점수</label>
+                <input type="number" id="geo-base-score" placeholder="예) 10" value="10" min="1">
+              </div>
+              <div class="form-group">
+                <label>힌트 허용</label>
+                <select id="geo-hint">
+                  <option value="yes">허용 (점수 차감)</option>
+                  <option value="no">허용 안 함</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>힌트 사용 시 차감 점수</label>
+                <input type="number" id="geo-hint-penalty" placeholder="예) 3" value="3" min="0">
+              </div>
+              <div class="form-group">
+                <label>오답 시 차감 점수</label>
+                <input type="number" id="geo-wrong-penalty" placeholder="예) 1" value="1" min="0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>CP 공개 방식</label>
+                <select id="geo-reveal">
+                  <option value="all">처음부터 전체 공개</option>
+                  <option value="sequential">완료 후 순차 공개</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>최소 완료 CP 수 (완주 조건)</label>
+                <input type="number" id="geo-min-cp" placeholder="예) 5" min="1">
+              </div>
+            </div>
+          </div>
+
+          <!-- 오리엔티어링 설정 -->
+          <div id="settings-orienteering" class="mode-settings" style="display:none">
+            <div style="font-size:12px;font-weight:500;color:#534AB7;margin-bottom:12px">🧭 오리엔티어링 설정</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>시작 CP 배정 방식</label>
+                <select id="ori-start">
+                  <option value="random">랜덤 배정</option>
+                  <option value="manual">수동 배정</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>CP 공개 방식</label>
+                <select id="ori-reveal">
+                  <option value="one">완료 후 다음 1개 공개</option>
+                  <option value="all">전체 동시 공개</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>순위 결정 방식</label>
+                <select id="ori-rank">
+                  <option value="time">완주 시간 순</option>
+                  <option value="cp-then-time">CP 수 → 시간 순</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>페널티 시간 (분 / 오답 1회)</label>
+                <input type="number" id="ori-penalty" placeholder="예) 2" value="2" min="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>팀 구성</label>
+              <select id="ori-team">
+                <option value="individual">개인전</option>
+                <option value="team">팀전</option>
+              </select>
+            </div>
+            <div id="ori-team-size-wrap" style="display:none">
+              <div class="form-group">
+                <label>팀당 인원 수</label>
+                <input type="number" id="ori-team-size" placeholder="예) 4" value="4" min="2">
+              </div>
+            </div>
+          </div>
+
+          <!-- 하이킹 설정 -->
+          <div id="settings-hiking" class="mode-settings" style="display:none">
+            <div style="font-size:12px;font-weight:500;color:#D85A30;margin-bottom:12px">🥾 하이킹 설정</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>인솔자 위치 공유</label>
+                <select id="hike-leader">
+                  <option value="yes">공유</option>
+                  <option value="no">공유 안 함</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>참가자 간 위치 공유</label>
+                <select id="hike-share">
+                  <option value="yes">공유</option>
+                  <option value="no">공유 안 함</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>이탈 감지 반경 (m)</label>
+                <input type="number" id="hike-radius" placeholder="예) 100" value="100" min="50">
+              </div>
+              <div class="form-group">
+                <label>안전 체크 간격 (분)</label>
+                <input type="number" id="hike-check" placeholder="예) 10" value="10" min="5">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>비상 연락처</label>
+              <input type="text" id="hike-emergency" placeholder="예) 010-1234-5678">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:24px">
+            <button class="btn" id="cancel-btn" style="flex:1;justify-content:center">취소</button>
+            <button class="btn btn-primary" id="save-prog-btn" style="flex:2;justify-content:center">
+              <i class="ti ti-check"></i> 저장 후 CP 편집
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CP 편집 -->
+      <div class="screen" id="screen-cp-editor">
+        <div class="cp-editor">
+          <div class="cp-map-wrap">
+            <div class="map-tip">지도를 클릭하면 CP가 추가됩니다</div>
+            <button class="map-type-btn" id="admin-map-type-btn">🛰️ 위성</button>
+            <button id="admin-locate-btn" title="현재 위치로 이동" style="position:absolute;bottom:16px;right:16px;z-index:10;width:40px;height:40px;background:white;border:0.5px solid #ddd;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)">📍</button>
+            <div id="admin-map"></div>
+          </div>
+          <div class="cp-panel">
+            <div class="cp-panel-card">
+              <div class="cp-panel-title">체크포인트 목록</div>
+              <div id="cp-list-admin"></div>
+              <button class="btn btn-sm" id="add-cp-btn" style="width:100%;justify-content:center;margin-top:4px">
+                <i class="ti ti-plus"></i> 지도 중앙에 CP 추가
+              </button>
+            </div>
+            <div class="cp-form" id="cp-edit-form" style="display:none">
+              <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:#1D9E75" id="cp-form-title">CP 편집</div>
+              <label>CP 이름</label>
+              <input type="text" id="cp-name-input" placeholder="예: 팔각정">
+              <label>미션 설명</label>
+              <textarea id="cp-mission-input" placeholder="참가자에게 보여줄 미션 내용"></textarea>
+              <label>정답</label>
+              <input type="text" id="cp-answer-input" placeholder="정답 키워드">
+              <label>좌표 <span style="font-weight:400;color:#aaa">(직접 입력 또는 지도 클릭)</span></label>
+              <div class="coord-row">
+                <input type="text" id="cp-lat-input" placeholder="위도 예) 37.5954">
+                <input type="text" id="cp-lng-input" placeholder="경도 예) 126.9349">
+              </div>
+              <div style="font-size:11px;color:#aaa;margin-top:-6px;margin-bottom:10px">
+                입력 후 Tab키를 누르면 지도에 바로 반영됩니다
+              </div>
+              <label>CP 유형</label>
+              <select id="cp-type-input">
+                <option value="normal">일반 CP</option>
+                <option value="start">출발 S (GPS 자동인증)</option>
+                <option value="end">도착 F (GPS 자동인증)</option>
+              </select>
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <button class="btn btn-sm btn-danger" id="delete-cp-btn" style="flex:1;justify-content:center">
+                  <i class="ti ti-trash"></i> 삭제
+                </button>
+                <button class="btn btn-sm btn-primary" id="save-cp-btn" style="flex:2;justify-content:center">
+                  <i class="ti ti-check"></i> 저장
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="save-all-btn" style="justify-content:center">
+              <i class="ti ti-device-floppy"></i> 전체 저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 참가자 현황 -->
+      <div class="screen" id="screen-participants">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-size:13px;color:#888" id="participants-program-info">백련산 생태 탐험 2026 · 지오캐싱</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="renderParticipants()"><i class="ti ti-refresh"></i> 새로고침</button>
+            <button class="btn btn-sm btn-primary"><i class="ti ti-download"></i> CSV 내보내기</button>
+          </div>
+        </div>
+
+        <!-- 실시간 위치 지도 -->
+        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden;margin-bottom:20px">
+          <div style="padding:14px 18px;border-bottom:0.5px solid #f0efe8;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:14px;font-weight:500">참가자 실시간 위치</div>
+            <div style="display:flex;gap:12px;align-items:center;font-size:12px;color:#888">
+              <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D9E75;margin-right:4px"></span>진행중</span>
+              <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#534AB7;margin-right:4px"></span>완주</span>
+              <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#aaa;margin-right:4px"></span>미시작</span>
+            </div>
+          </div>
+          <div style="position:relative">
+            <button class="map-type-btn" id="monitor-map-type-btn">🛰️ 위성</button>
+            <div id="monitor-map" style="width:100%;height:360px"></div>
+          </div>
+        </div>
+
+        <!-- 통계 카드 -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">전체 참가자</div>
+            <div style="font-size:28px;font-weight:500">18</div>
+          </div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">진행 중</div>
+            <div style="font-size:28px;font-weight:500;color:#1D9E75">11</div>
+          </div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">완주</div>
+            <div style="font-size:28px;font-weight:500;color:#534AB7">4</div>
+          </div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">미시작</div>
+            <div style="font-size:28px;font-weight:500;color:#aaa">3</div>
+          </div>
+        </div>
+
+        <!-- 참가자 테이블 -->
+        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden">
+          <div style="padding:14px 18px;border-bottom:0.5px solid #f0efe8;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:14px;font-weight:500">참가자 목록</div>
+            <input type="text" placeholder="이름 검색..." id="search-input" style="padding:6px 10px;border:0.5px solid #ddd;border-radius:6px;font-size:12px;width:160px" oninput="filterParticipants()">
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse" id="participants-table">
+              <thead>
+                <tr style="background:#f9f9f6;font-size:12px;color:#888">
+                  <th style="padding:10px 16px;text-align:left;font-weight:500">이름</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">출발</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP1</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP2</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP3</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP4</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP5</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP6</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP7</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP8</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">CP9</th>
+                  <th style="padding:10px 8px;text-align:center;font-weight:500">완주</th>
+                  <th style="padding:10px 16px;text-align:center;font-weight:500">완료</th>
+                  <th style="padding:10px 16px;text-align:center;font-weight:500">기록</th>
+                  <th style="padding:10px 16px;text-align:center;font-weight:500">상태</th>
+                </tr>
+              </thead>
+              <tbody id="participants-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 통계 -->
+      <div class="screen" id="screen-stats">
+        <!-- 프로그램별 통계 -->
+        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:24px;margin-bottom:20px">
+          <div style="font-size:15px;font-weight:500;margin-bottom:20px">프로그램 통계</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px" id="stats-overview">
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:8px">총 프로그램</div>
+              <div style="font-size:32px;font-weight:500;color:#1D9E75" id="stat-total-prog">0</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:8px">평균 참가자</div>
+              <div style="font-size:32px;font-weight:500;color:#1D9E75" id="stat-avg-participants">0</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:8px">총 완주자</div>
+              <div style="font-size:32px;font-weight:500;color:#534AB7" id="stat-total-finished">0</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:8px">평균 완주 시간</div>
+              <div style="font-size:32px;font-weight:500;color:#1D9E75" id="stat-avg-time">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 프로그램별 상세 통계 -->
+        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;overflow:hidden">
+          <div style="padding:18px 24px;border-bottom:0.5px solid #f0efe8;font-size:15px;font-weight:500">프로그램별 상세 통계</div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse" id="stats-table">
+              <thead>
+                <tr style="background:#f9f9f6;font-size:12px;color:#888">
+                  <th style="padding:12px 18px;text-align:left;font-weight:500">프로그램명</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">운영 방식</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">참가자</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">완주</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">진행중</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">미시작</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">완주율</th>
+                  <th style="padding:12px 18px;text-align:center;font-weight:500">평균시간</th>
+                </tr>
+              </thead>
+              <tbody id="stats-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 삭제 확인 모달 -->
+<div class="modal-bg" id="delete-modal" style="display:none">
+  <div class="modal">
+    <h3>프로그램 삭제</h3>
+    <p>정말 삭제하시겠어요? 되돌릴 수 없습니다.</p>
+    <div class="modal-btns">
+      <button class="btn" id="cancel-delete-btn">취소</button>
+      <button class="btn btn-danger" id="confirm-delete-btn">삭제</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Firebase 초기화 ────────────────────────────────────
+  var firebaseConfig = {
+    apiKey: "AIzaSyDqONjVeI3ACN2ZgaOFkUMkkuTvsBMcok0",
+    authDomain: "playoutside-gps.firebaseapp.com",
+    projectId: "playoutside-gps",
+    storageBucket: "playoutside-gps.firebasestorage.app",
+    messagingSenderId: "915320760860",
+    appId: "1:915320760860:web:9fd2a60c59e8e2e7e0cdd9",
+    measurementId: "G-ETE1B03HT1"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore();
+
+  // ── 전역 상태 ─────────────────────────────────────────
+  var programs = [];
+  var selectedMode = 'geocaching';
+  var deleteTargetId = null;
+  var currentProgId = null;
+  var adminMap = null;
+  var adminMarkers = [];
+  var cpData = [];
+  var selectedCPIndex = null;
+  var isAdminSatellite = false;
+  var isMonitorSatellite = false;
+  var monitorMap = null;
+  var monitorMarkers = [];
+  var modeBadge = { geocaching:'badge-green', orienteering:'badge-purple', hiking:'badge-amber' };
+  var modeNames = { geocaching:'지오캐싱', orienteering:'오리엔티어링', hiking:'하이킹' };
+
+  // 실시간 참가자 데이터 (Firestore onSnapshot)
+  var liveParticipants = [];
+  var participantsUnsubscribe = null;
+
+  // ── 이벤트 연결 ──────────────────────────────────────────
+  document.getElementById('menu-programs').addEventListener('click', function() { showScreen('programs'); });
+  document.getElementById('menu-new').addEventListener('click', function() { showScreen('new-program'); });
+  document.getElementById('menu-participants').addEventListener('click', function() {
+    var progId = currentProgId || (programs.length > 0 ? programs[0].id : null);
+    if (progId) { showScreen('participants', progId); }
+  });
+  document.getElementById('menu-stats').addEventListener('click', function() { showScreen('stats'); });
+  document.getElementById('topbar-new-btn').addEventListener('click', function() { showScreen('new-program'); });
+  document.getElementById('empty-new-btn').addEventListener('click', function() { showScreen('new-program'); });
+  document.getElementById('cancel-btn').addEventListener('click', function() { showScreen('programs'); });
+  document.getElementById('back-btn').addEventListener('click', function() { showScreen('programs'); });
+  document.getElementById('save-prog-btn').addEventListener('click', saveProgram);
+  document.getElementById('add-cp-btn').addEventListener('click', addCPFromPanel);
+  document.getElementById('save-cp-btn').addEventListener('click', saveCP);
+  document.getElementById('delete-cp-btn').addEventListener('click', deleteCP);
+  document.getElementById('save-all-btn').addEventListener('click', saveCPsToProgram);
+  document.getElementById('cancel-delete-btn').addEventListener('click', function() {
+    document.getElementById('delete-modal').style.display = 'none';
+    deleteTargetId = null;
+  });
+  document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
+  document.getElementById('admin-map-type-btn').addEventListener('click', toggleAdminMapType);
+  document.getElementById('admin-locate-btn').addEventListener('click', adminLocateMe);
+  document.getElementById('monitor-map-type-btn').addEventListener('click', toggleMonitorMapType);
+  document.getElementById('ori-team').addEventListener('change', function() {
+    document.getElementById('ori-team-size-wrap').style.display = this.value === 'team' ? 'block' : 'none';
+  });
+
+  document.querySelectorAll('.mode-option').forEach(function(el) {
+    el.addEventListener('click', function() {
+      document.querySelectorAll('.mode-option').forEach(function(m) { m.classList.remove('selected'); });
+      el.classList.add('selected');
+      selectedMode = el.dataset.mode;
+      showModeSettings(selectedMode);
+    });
+  });
+
+  // ── 운영방식 설정 표시 ────────────────────────────────
+  function showModeSettings(mode) {
+    document.getElementById('settings-geocaching').style.display   = mode === 'geocaching'   ? 'block' : 'none';
+    document.getElementById('settings-orienteering').style.display = mode === 'orienteering' ? 'block' : 'none';
+    document.getElementById('settings-hiking').style.display       = mode === 'hiking'       ? 'block' : 'none';
+  }
+
+  function getModeSettings() {
+    if (selectedMode === 'geocaching') {
+      return {
+        baseScore: document.getElementById('geo-base-score').value,
+        hint: document.getElementById('geo-hint').value,
+        hintPenalty: document.getElementById('geo-hint-penalty').value,
+        wrongPenalty: document.getElementById('geo-wrong-penalty').value,
+        reveal: document.getElementById('geo-reveal').value,
+        minCp: document.getElementById('geo-min-cp').value,
+      };
+    } else if (selectedMode === 'orienteering') {
+      return {
+        start: document.getElementById('ori-start').value,
+        reveal: document.getElementById('ori-reveal').value,
+        rank: document.getElementById('ori-rank').value,
+        penalty: document.getElementById('ori-penalty').value,
+        team: document.getElementById('ori-team').value,
+        teamSize: document.getElementById('ori-team-size').value,
+      };
+    } else if (selectedMode === 'hiking') {
+      return {
+        leader: document.getElementById('hike-leader').value,
+        share: document.getElementById('hike-share').value,
+        radius: document.getElementById('hike-radius').value,
+        check: document.getElementById('hike-check').value,
+        emergency: document.getElementById('hike-emergency').value,
+      };
+    }
+    return {};
+  }
+
+  // ── 화면 전환 ──────────────────────────────────────────
+  function showScreen(name, progId) {
+    document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+    document.querySelectorAll('.menu-item').forEach(function(m) { m.classList.remove('active'); });
+    document.getElementById('screen-' + name).classList.add('active');
+    document.getElementById('back-btn').style.display = name === 'programs' ? 'none' : 'flex';
+    document.getElementById('topbar-new-btn').style.display = name === 'cp-editor' ? 'none' : 'flex';
+    var titles = { programs:'프로그램 목록', 'new-program':'새 프로그램 만들기', 'cp-editor':'CP 편집', participants:'참가자 현황', stats:'통계' };
+    document.getElementById('topbar-title').textContent = titles[name] || '';
+
+    // 참가자 현황을 벗어나면 실시간 구독 해제
+    if (name !== 'participants' && participantsUnsubscribe) {
+      participantsUnsubscribe();
+      participantsUnsubscribe = null;
+    }
+
+    if (name === 'programs') {
+      document.getElementById('menu-programs').classList.add('active');
+      renderPrograms();
+    } else if (name === 'new-program') {
+      document.getElementById('menu-new').classList.add('active');
+      resetForm();
+    } else if (name === 'cp-editor') {
+      currentProgId = progId;
+      var prog = programs.find(function(p) { return p.id === progId; });
+      if (prog) document.getElementById('topbar-title').textContent = prog.name + ' — CP 편집';
+      cpData = prog && prog.cps ? JSON.parse(JSON.stringify(prog.cps)) : [];
+      selectedCPIndex = null;
+      document.getElementById('cp-edit-form').style.display = 'none';
+      setTimeout(initAdminMap, 150);
+    } else if (name === 'participants') {
+      if (!progId && programs.length > 0) { progId = programs[0].id; }
+      currentProgId = progId;
+      var prog = programs.find(function(p) { return p.id === progId; });
+      if (prog) {
+        document.getElementById('topbar-title').textContent = prog.name + ' · 참가자 현황';
+        var modeText = modeNames[prog.mode] || prog.mode;
+        document.getElementById('participants-program-info').textContent = prog.name + ' · ' + modeText;
+      }
+      document.getElementById('menu-participants').classList.add('active');
+      setTimeout(function() { subscribeParticipants(progId); initMonitorMap(); }, 100);
+    } else if (name === 'stats') {
+      document.getElementById('menu-stats').classList.add('active');
+      renderStats();
+    }
+  }
+
+  function resetForm() {
+    ['prog-name','prog-location','prog-date','prog-time','prog-participants','prog-manager','prog-desc'].forEach(function(id) {
+      document.getElementById(id).value = '';
+    });
+    selectedMode = 'geocaching';
+    document.querySelectorAll('.mode-option').forEach(function(m, i) { m.classList.toggle('selected', i === 0); });
+    showModeSettings('geocaching');
+  }
+
+  // ── 프로그램 저장 (Firestore) ──────────────────────────
+  function saveProgram() {
+    var name = document.getElementById('prog-name').value.trim();
+    if (!name) { alert('프로그램 이름을 입력해주세요'); return; }
+    var prog = {
+      name: name,
+      location: document.getElementById('prog-location').value.trim(),
+      date: document.getElementById('prog-date').value,
+      time: document.getElementById('prog-time').value,
+      participants: document.getElementById('prog-participants').value,
+      manager: document.getElementById('prog-manager').value.trim(),
+      desc: document.getElementById('prog-desc').value.trim(),
+      mode: selectedMode,
+      modeSettings: getModeSettings(),
+      cps: [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    var btn = document.getElementById('save-prog-btn');
+    btn.disabled = true;
+    db.collection('programs').add(prog).then(function(docRef) {
+      btn.disabled = false;
+      showScreen('cp-editor', docRef.id);
+    }).catch(function(err) {
+      btn.disabled = false;
+      console.error('프로그램 저장 오류:', err);
+      alert('저장 중 오류가 발생했습니다: ' + err.message);
+    });
+  }
+
+  // ── 프로그램 목록 렌더링 ───────────────────────────────
+  function renderPrograms() {
+    var grid = document.getElementById('prog-grid');
+    var empty = document.getElementById('empty-state');
+    grid.innerHTML = '';
+    if (programs.length === 0) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    var activeId = localStorage.getItem('po-active-id') || '';
+    programs.forEach(function(prog) {
+      var badge = modeBadge[prog.mode] || 'badge-gray';
+      var dateStr = prog.date ? new Date(prog.date).toLocaleDateString('ko-KR') : '날짜 미정';
+      var isActive = prog.id === activeId;
+      var card = document.createElement('div');
+      card.className = 'prog-card';
+      if (isActive) card.style.outline = '2px solid #1D9E75';
+      card.innerHTML =
+        '<div class="prog-card-header">' +
+          '<div><div class="prog-card-title">' + prog.name +
+            (isActive ? ' <span style="font-size:10px;background:#1D9E75;color:white;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">▶ 실행 중</span>' : '') +
+          '</div>' +
+          '<div class="prog-card-meta">' + (prog.location||'장소 미정') + ' · ' + dateStr + (prog.manager ? ' · ' + prog.manager : '') + '</div></div>' +
+          '<span class="badge ' + badge + '">' + (modeNames[prog.mode]||prog.mode) + '</span>' +
+        '</div>' +
+        '<div class="prog-card-body">' +
+          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.cps?prog.cps.filter(function(c){return c.type==='normal'}).length:0) + '</div><div class="prog-stat-label">일반 CP</div></div>' +
+          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.time||'-') + '</div><div class="prog-stat-label">제한(분)</div></div>' +
+          '<div class="prog-stat"><div class="prog-stat-value">' + (prog.participants||'-') + '</div><div class="prog-stat-label">참가자</div></div>' +
+        '</div>' +
+        '<div class="prog-card-footer" style="flex-wrap:wrap;gap:6px">' +
+          '<button class="btn btn-sm activate-btn" data-id="' + prog.id + '" style="' + (isActive ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : '') + '">' +
+            '<i class="ti ti-player-play"></i> ' + (isActive ? '실행 중' : '참가자에 적용') + '</button>' +
+          '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '"><i class="ti ti-map-pin"></i> CP 편집</button>' +
+          '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '"><i class="ti ti-trash"></i></button>' +
+          '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="margin-left:auto"><i class="ti ti-users"></i> 참가자 현황</button>' +
+        '</div>';
+      grid.appendChild(card);
+    });
+    document.querySelectorAll('.activate-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.dataset.id;
+        var prog = programs.find(function(p) { return p.id === id; });
+        if (!prog) return;
+        if (!(prog.cps && prog.cps.length > 0)) {
+          alert('CP가 없습니다. 먼저 CP를 편집하고 저장해주세요.');
+          return;
+        }
+        // Firestore config/active에 활성 프로그램 저장
+        db.collection('config').doc('active').set({ programId: id }).then(function() {
+          localStorage.setItem('po-active-id', id);
+          renderPrograms();
+          alert('✅ "' + prog.name + '" 이 참가자 앱에 적용됐습니다!\nindex.html을 새로고침하면 이 프로그램의 CP로 시작합니다.');
+        }).catch(function(err) {
+          console.error('활성 프로그램 설정 오류:', err);
+          alert('적용 중 오류가 발생했습니다: ' + err.message);
+        });
+      });
+    });
+    document.querySelectorAll('.part-view-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { showScreen('participants', btn.dataset.id); });
+    });
+    document.querySelectorAll('.cp-edit-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { showScreen('cp-editor', btn.dataset.id); });
+    });
+    document.querySelectorAll('.prog-del-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        deleteTargetId = btn.dataset.id;
+        document.getElementById('delete-modal').style.display = 'flex';
+      });
+    });
+  }
+
+  function confirmDelete() {
+    if (!deleteTargetId) return;
+    db.collection('programs').doc(deleteTargetId).delete().then(function() {
+      document.getElementById('delete-modal').style.display = 'none';
+      deleteTargetId = null;
+      // onSnapshot이 자동으로 목록 갱신함
+    }).catch(function(err) {
+      console.error('삭제 오류:', err);
+      alert('삭제 중 오류가 발생했습니다: ' + err.message);
+      document.getElementById('delete-modal').style.display = 'none';
+      deleteTargetId = null;
+    });
+  }
+
+  // ── 관리자 지도 ───────────────────────────────────────
+  function initAdminMap() {
+    if (adminMap) { adminMap = null; }
+    var center = cpData.length > 0
+      ? new naver.maps.LatLng(cpData[0].lat, cpData[0].lng)
+      : new naver.maps.LatLng(37.5954, 126.9349);
+    adminMap = new naver.maps.Map('admin-map', { center: center, zoom: 16 });
+    isAdminSatellite = false;
+    document.getElementById('admin-map-type-btn').innerHTML = '🛰️ 위성';
+    initCoordInputs();
+    renderAdminMarkers();
+    renderCPListAdmin();
+    naver.maps.Event.addListener(adminMap, 'click', function(e) {
+      var lat = parseFloat(e.coord.lat().toFixed(6));
+      var lng = parseFloat(e.coord.lng().toFixed(6));
+      var normalCount = cpData.filter(function(cp) { return cp.type === 'normal'; }).length + 1;
+      var newCP = { id:'CP'+normalCount, name:'CP'+normalCount, lat:lat, lng:lng, mission:'', answer:'', type:'normal' };
+      cpData.push(newCP);
+      renderAdminMarkers();
+      renderCPListAdmin();
+      selectCP(cpData.length - 1);
+    });
+  }
+
+  function initCoordInputs() {
+    var latInput = document.getElementById('cp-lat-input');
+    var lngInput = document.getElementById('cp-lng-input');
+    function applyCoord() {
+      var lat = parseFloat(latInput.value);
+      var lng = parseFloat(lngInput.value);
+      if (isNaN(lat) || isNaN(lng) || selectedCPIndex === null) return;
+      cpData[selectedCPIndex].lat = lat;
+      cpData[selectedCPIndex].lng = lng;
+      adminMap.setCenter(new naver.maps.LatLng(lat, lng));
+      renderAdminMarkers();
+    }
+    latInput.addEventListener('change', applyCoord);
+    lngInput.addEventListener('change', applyCoord);
+  }
+
+  function renderAdminMarkers() {
+    adminMarkers.forEach(function(m) { m.setMap(null); });
+    adminMarkers = [];
+    cpData.forEach(function(cp, i) {
+      var color = cp.type==='start' ? '#1D9E75' : cp.type==='end' ? '#D85A30' : '#534AB7';
+      var marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(cp.lat, cp.lng),
+        map: adminMap,
+        icon: {
+          content: '<div style="width:32px;height:32px;border-radius:50%;background:' + color + ';color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">' + cp.id + '</div>',
+          anchor: new naver.maps.Point(16, 16)
+        }
+      });
+      (function(idx) { naver.maps.Event.addListener(marker, 'click', function() { selectCP(idx); }); })(i);
+      adminMarkers.push(marker);
+    });
+  }
+
+  function renderCPListAdmin() {
+    var list = document.getElementById('cp-list-admin');
+    list.innerHTML = '';
+    cpData.forEach(function(cp, i) {
+      var numClass = cp.type==='start' ? 'start' : cp.type==='end' ? 'end' : '';
+      var displayId = cp.type==='start' ? '출발' : cp.type==='end' ? '도착' : cp.id;
+      var item = document.createElement('div');
+      item.className = 'cp-list-item' + (selectedCPIndex===i ? ' selected' : '');
+      item.innerHTML =
+        '<div class="cp-num ' + numClass + '" style="font-size:10px">' + displayId + '</div>' +
+        '<div style="flex:1"><div class="cp-item-name">' + cp.name + '</div>' +
+        '<div class="cp-item-type">' + (cp.type==='start'?'GPS 자동인증':cp.type==='end'?'GPS 자동인증':'일반 CP') + '</div></div>' +
+        '<button class="btn btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" data-add="' + i + '">+ 아래 추가</button>';
+      (function(idx) {
+        item.querySelector('[data-add]').addEventListener('click', function(e) {
+          e.stopPropagation();
+          addCPAfter(idx);
+        });
+        item.addEventListener('click', function() { selectCP(idx); });
+      })(i);
+      list.appendChild(item);
+    });
+  }
+
+  function selectCP(i) {
+    selectedCPIndex = i;
+    var cp = cpData[i];
+    document.getElementById('cp-edit-form').style.display = 'block';
+    document.getElementById('cp-form-title').textContent = cp.name + ' 편집';
+    document.getElementById('cp-name-input').value = cp.name;
+    document.getElementById('cp-mission-input').value = cp.mission || '';
+    document.getElementById('cp-answer-input').value = cp.answer || '';
+    document.getElementById('cp-lat-input').value = cp.lat;
+    document.getElementById('cp-lng-input').value = cp.lng;
+    document.getElementById('cp-type-input').value = cp.type || 'normal';
+    renderCPListAdmin();
+    adminMap.setCenter(new naver.maps.LatLng(cp.lat, cp.lng));
+  }
+
+  function saveCP() {
+    if (selectedCPIndex === null) return;
+    cpData[selectedCPIndex].name    = document.getElementById('cp-name-input').value.trim() || cpData[selectedCPIndex].id;
+    cpData[selectedCPIndex].mission = document.getElementById('cp-mission-input').value.trim();
+    cpData[selectedCPIndex].answer  = document.getElementById('cp-answer-input').value.trim();
+    cpData[selectedCPIndex].lat     = parseFloat(document.getElementById('cp-lat-input').value);
+    cpData[selectedCPIndex].lng     = parseFloat(document.getElementById('cp-lng-input').value);
+    cpData[selectedCPIndex].type    = document.getElementById('cp-type-input').value;
+    if (cpData[selectedCPIndex].type === 'start') {
+      cpData[selectedCPIndex].id = 'S';
+    } else if (cpData[selectedCPIndex].type === 'end') {
+      cpData[selectedCPIndex].id = 'F';
+    } else {
+      var num = 1;
+      cpData.forEach(function(cp) { if (cp.type === 'normal') { cp.id = 'CP' + num; num++; } });
+    }
+    renderAdminMarkers();
+    renderCPListAdmin();
+    alert('CP가 저장됐어요!');
+  }
+
+  function deleteCP() {
+    if (selectedCPIndex === null) return;
+    cpData.splice(selectedCPIndex, 1);
+    selectedCPIndex = null;
+    document.getElementById('cp-edit-form').style.display = 'none';
+    renderAdminMarkers();
+    renderCPListAdmin();
+  }
+
+  function addCPFromPanel() {
+    var center = adminMap.getCenter();
+    var normalCount = cpData.filter(function(cp) { return cp.type === 'normal'; }).length + 1;
+    var newCP = { id:'CP'+normalCount, name:'CP'+normalCount, lat:parseFloat(center.lat().toFixed(6)), lng:parseFloat(center.lng().toFixed(6)), mission:'', answer:'', type:'normal' };
+    cpData.push(newCP);
+    renderAdminMarkers();
+    renderCPListAdmin();
+    selectCP(cpData.length - 1);
+  }
+
+  function addCPAfter(idx) {
+    var ref = cpData[idx];
+    var normalCount = cpData.filter(function(cp) { return cp.type === 'normal'; }).length + 1;
+    var newCP = {
+      id: 'CP' + normalCount,
+      name: 'CP' + normalCount,
+      lat: parseFloat((ref.lat + 0.0002).toFixed(6)),
+      lng: parseFloat((ref.lng + 0.0002).toFixed(6)),
+      mission: '', answer: '', type: 'normal'
+    };
+    cpData.splice(idx + 1, 0, newCP);
+    var num = 1;
+    cpData.forEach(function(cp) { if (cp.type === 'normal') { cp.id = 'CP' + num; cp.name = cp.name.startsWith('CP') ? 'CP' + num : cp.name; num++; } });
+    renderAdminMarkers();
+    renderCPListAdmin();
+    selectCP(idx + 1);
+  }
+
+  // ── CP 전체 저장 (Firestore) ──────────────────────────
+  function saveCPsToProgram() {
+    if (!currentProgId) return;
+    db.collection('programs').doc(currentProgId).update({ cps: cpData }).then(function() {
+      alert('저장 완료! CP ' + cpData.length + '개가 저장됐어요.');
+      showScreen('programs');
+    }).catch(function(err) {
+      console.error('CP 저장 오류:', err);
+      alert('CP 저장 중 오류가 발생했습니다: ' + err.message);
+    });
+  }
+
+  // ── 지도 타입 전환 ────────────────────────────────────
+  function adminLocateMe() {
+    if (!adminMap) return;
+    if (!navigator.geolocation) { alert('이 브라우저는 위치 서비스를 지원하지 않습니다.'); return; }
+    var btn = document.getElementById('admin-locate-btn');
+    btn.textContent = '⏳';
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      var lat = pos.coords.latitude;
+      var lng = pos.coords.longitude;
+      adminMap.setCenter(new naver.maps.LatLng(lat, lng));
+      adminMap.setZoom(18);
+      btn.textContent = '📍';
+      btn.disabled = false;
+    }, function() {
+      alert('위치를 가져올 수 없습니다. 브라우저 위치 권한을 확인해주세요.');
+      btn.textContent = '📍';
+      btn.disabled = false;
+    }, { enableHighAccuracy: true, timeout: 8000 });
+  }
+
+  function toggleAdminMapType() {
+    isAdminSatellite = !isAdminSatellite;
+    adminMap.setMapTypeId(isAdminSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
+    document.getElementById('admin-map-type-btn').innerHTML = isAdminSatellite ? '🗺️ 일반' : '🛰️ 위성';
+  }
+
+  function toggleMonitorMapType() {
+    isMonitorSatellite = !isMonitorSatellite;
+    monitorMap.setMapTypeId(isMonitorSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
+    document.getElementById('monitor-map-type-btn').innerHTML = isMonitorSatellite ? '🗺️ 일반' : '🛰️ 위성';
+  }
+
+  // ── 모니터링 지도 ─────────────────────────────────────
+  function initMonitorMap() {
+    var prog = programs.find(function(p) { return p.id === currentProgId; });
+    var centerLat = 37.5957, centerLng = 126.9346;
+    if (prog && prog.cps && prog.cps.length > 0) {
+      centerLat = prog.cps[0].lat;
+      centerLng = prog.cps[0].lng;
+    }
+    if (monitorMap) {
+      monitorMarkers.forEach(function(m) { m.setMap(null); });
+      monitorMarkers = [];
+      monitorMap.setCenter(new naver.maps.LatLng(centerLat, centerLng));
+    } else {
+      monitorMap = new naver.maps.Map('monitor-map', { center: new naver.maps.LatLng(centerLat, centerLng), zoom: 16 });
+    }
+    // CP 마커 표시
+    if (prog && prog.cps) {
+      prog.cps.forEach(function(cp) {
+        new naver.maps.Marker({
+          position: new naver.maps.LatLng(cp.lat, cp.lng),
+          map: monitorMap,
+          icon: {
+            content: '<div style="width:22px;height:22px;border-radius:50%;background:#EEEDFE;color:#534AB7;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;border:1.5px solid #534AB7">' + cp.id + '</div>',
+            anchor: new naver.maps.Point(11, 11)
+          }
+        });
+      });
+    }
+    // 참가자 마커는 liveParticipants로 렌더
+    renderMonitorParticipants();
+  }
+
+  function renderMonitorParticipants() {
+    if (!monitorMap) return;
+    monitorMarkers.forEach(function(m) { m.setMap(null); });
+    monitorMarkers = [];
+    liveParticipants.forEach(function(p) {
+      if (!p.location || !p.location.lat || !p.location.lng) return;
+      var statusLabel = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
+      var color = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
+      var marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(p.location.lat, p.location.lng),
+        map: monitorMap,
+        icon: {
+          content: '<div style="background:' + color + ';color:white;padding:3px 7px;border-radius:20px;font-size:11px;font-weight:500;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.25);white-space:nowrap">' + p.name + '</div>',
+          anchor: new naver.maps.Point(20, 12)
+        }
+      });
+      monitorMarkers.push(marker);
+      var infoWindow = new naver.maps.InfoWindow({
+        content: '<div style="padding:8px 12px;font-size:13px"><b>' + p.name + '</b><br><span style="color:' + color + ';font-size:12px">' + statusLabel + '</span></div>'
+      });
+      naver.maps.Event.addListener(marker, 'click', function() {
+        if (infoWindow.getMap()) { infoWindow.close(); }
+        else { infoWindow.open(monitorMap, marker); }
+      });
+    });
+  }
+
+  // ── 참가자 현황 실시간 구독 (Firestore onSnapshot) ───
+  function subscribeParticipants(progId) {
+    if (participantsUnsubscribe) { participantsUnsubscribe(); }
+    liveParticipants = [];
+    participantsUnsubscribe = db.collection('participants').doc(progId).collection('users')
+      .onSnapshot(function(snapshot) {
+        liveParticipants = [];
+        snapshot.forEach(function(doc) {
+          liveParticipants.push(Object.assign({ userId: doc.id }, doc.data()));
+        });
+        renderParticipants();
+        renderMonitorParticipants();
+        updateParticipantStats();
+      }, function(err) {
+        console.error('참가자 구독 오류:', err);
+        alert('참가자 데이터를 불러오지 못했습니다: ' + err.message);
+      });
+  }
+
+  function updateParticipantStats() {
+    var total = liveParticipants.length;
+    var finished = liveParticipants.filter(function(p) { return p.status === 'finished'; }).length;
+    var inProgress = liveParticipants.filter(function(p) { return p.status === 'in-progress'; }).length;
+    var notStarted = liveParticipants.filter(function(p) { return p.status === 'not-started'; }).length;
+    // 통계 카드 업데이트
+    var cards = document.querySelectorAll('#screen-participants [style*="font-size:28px"]');
+    if (cards.length >= 4) {
+      cards[0].textContent = total;
+      cards[1].textContent = inProgress;
+      cards[2].textContent = finished;
+      cards[3].textContent = notStarted;
+    }
+  }
+
+  function renderParticipants() {
+    var prog = programs.find(function(p) { return p.id === currentProgId; });
+    var totalCPs = prog && prog.cps ? prog.cps.filter(function(c) { return c.type === 'normal'; }).length : 0;
+    var keyword = document.getElementById('search-input') ? document.getElementById('search-input').value.trim() : '';
+    var filtered = keyword
+      ? liveParticipants.filter(function(p) { return p.name && p.name.includes(keyword); })
+      : liveParticipants.slice();
+    var tbody = document.getElementById('participants-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+      var emptyRow = document.createElement('tr');
+      emptyRow.innerHTML = '<td colspan="15" style="padding:24px;text-align:center;color:#888">참가자 데이터가 없습니다</td>';
+      tbody.appendChild(emptyRow);
+      return;
+    }
+    filtered.forEach(function(p) {
+      var statusLabel = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
+      var statusColor = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
+      var statusBg    = p.status === 'finished' ? '#EEEDFE' : p.status === 'in-progress' ? '#E1F5EE' : '#f0efe8';
+      var completedCPs = p.completedCPs || [];
+      var completed = completedCPs.length;
+      var startedStr = '', finishedStr = '', elapsed = '';
+      if (p.startedAt) {
+        var sd = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
+        startedStr = sd.getHours().toString().padStart(2,'0') + ':' + sd.getMinutes().toString().padStart(2,'0');
+      }
+      if (p.finishedAt) {
+        var fd = p.finishedAt.toDate ? p.finishedAt.toDate() : new Date(p.finishedAt);
+        finishedStr = fd.getHours().toString().padStart(2,'0') + ':' + fd.getMinutes().toString().padStart(2,'0');
+        if (p.startedAt) {
+          var sd2 = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
+          elapsed = Math.round((fd - sd2) / 60000) + '분';
+        }
+      } else if (p.startedAt) {
+        elapsed = '-';
+      }
+      // CP 셀 생성 (최대 9개)
+      var cpCells = '';
+      for (var ci = 0; ci < 9; ci++) {
+        var done = completedCPs.indexOf(ci) !== -1;
+        cpCells += '<td style="padding:10px 8px;text-align:center">' +
+          (done ? '<span style="color:#1D9E75;font-size:16px">✓</span>' : '<span style="color:#e0e0d8;font-size:16px">○</span>') +
+          '</td>';
+      }
+      var tr = document.createElement('tr');
+      tr.style.borderBottom = '0.5px solid #f0efe8';
+      tr.style.fontSize = '13px';
+      tr.innerHTML =
+        '<td style="padding:12px 16px;font-weight:500">' + (p.name || '-') + '</td>' +
+        cpCells +
+        '<td style="padding:10px 16px;text-align:center;font-weight:500;color:#1D9E75">' + completed + '/' + totalCPs + '</td>' +
+        '<td style="padding:10px 16px;text-align:center;color:#888">' + (elapsed || '-') + '</td>' +
+        '<td style="padding:10px 16px;text-align:center"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 10px;border-radius:20px;font-size:11px;font-weight:500">' + statusLabel + '</span></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function filterParticipants() { renderParticipants(); }
+
+  // ── 통계 ──────────────────────────────────────────────────
+  function renderStats() {
+    var totalProg = programs.length;
+    var totalParticipants = 0;
+
+    programs.forEach(function(prog) {
+      var participants = prog.participants ? parseInt(prog.participants) : 0;
+      totalParticipants += participants;
+    });
+
+    var avgParticipants = totalProg > 0 ? Math.round(totalParticipants / totalProg) : 0;
+
+    document.getElementById('stat-total-prog').textContent = totalProg;
+    document.getElementById('stat-avg-participants').textContent = avgParticipants;
+    document.getElementById('stat-total-finished').textContent = '-';
+    document.getElementById('stat-avg-time').textContent = '-';
+
+    var tbody = document.getElementById('stats-body');
+    tbody.innerHTML = '';
+
+    programs.forEach(function(prog) {
+      var participants = parseInt(prog.participants) || 0;
+      var modeText = modeNames[prog.mode] || prog.mode;
+      var tr = document.createElement('tr');
+      tr.style.borderBottom = '0.5px solid #f0efe8';
+      tr.style.fontSize = '13px';
+      tr.innerHTML =
+        '<td style="padding:12px 18px;font-weight:500">' + prog.name + '</td>' +
+        '<td style="padding:12px 18px;text-align:center"><span style="background:#E1F5EE;color:#0F6E56;padding:2px 8px;border-radius:12px;font-size:11px">' + modeText + '</span></td>' +
+        '<td style="padding:12px 18px;text-align:center">' + participants + '</td>' +
+        '<td style="padding:12px 18px;text-align:center;font-weight:500;color:#534AB7">-</td>' +
+        '<td style="padding:12px 18px;text-align:center;color:#1D9E75">-</td>' +
+        '<td style="padding:12px 18px;text-align:center;color:#aaa">-</td>' +
+        '<td style="padding:12px 18px;text-align:center;font-weight:500">-</td>' +
+        '<td style="padding:12px 18px;text-align:center">-</td>';
+      tbody.appendChild(tr);
+    });
+
+    if (programs.length === 0) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="8" style="padding:24px;text-align:center;color:#888">프로그램이 없습니다</td>';
+      tbody.appendChild(tr);
+    }
+  }
+
+  // ── Firestore 실시간 프로그램 목록 구독 ───────────────
+  db.collection('programs').onSnapshot(function(snapshot) {
+    programs = [];
+    snapshot.forEach(function(doc) {
+      programs.push(Object.assign({ id: doc.id }, doc.data()));
+    });
+    // 최신순 정렬 (클라이언트 사이드)
+    programs.sort(function(a, b) {
+      var ta = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : 0) : 0;
+      var tb = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : 0) : 0;
+      return tb - ta;
+    });
+    // 현재 화면이 programs/stats면 즉시 반영
+    var activeScreen = document.querySelector('.screen.active');
+    if (activeScreen && activeScreen.id === 'screen-programs') { renderPrograms(); }
+    if (activeScreen && activeScreen.id === 'screen-stats') { renderStats(); }
+  }, function(err) {
+    console.error('프로그램 목록 구독 오류:', err);
+    alert('프로그램 목록을 불러오지 못했습니다: ' + err.message);
+  });
+
+  // 초기 화면 표시
+  showScreen('programs');
+</script>
+</body>
+</html>

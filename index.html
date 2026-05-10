@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>플레이아웃사이드 GPS 미션</title>
+  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: #f5f5f0; color: #2c2c2a; }
+    header { background: #1D9E75; color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
+    header h1 { font-size: 17px; font-weight: 500; }
+    header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    .timer-bar { background: #085041; color: white; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .timer-bar .t-label { opacity: 0.7; font-size: 11px; }
+    .timer-bar .t-value { font-weight: 500; font-size: 14px; }
+    .tabs { display: flex; background: white; border-bottom: 0.5px solid #e0e0d8; position: sticky; top: 88px; z-index: 99; }
+    .tab { flex: 1; padding: 12px; text-align: center; font-size: 13px; color: #888; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { color: #1D9E75; border-bottom-color: #1D9E75; font-weight: 500; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    #map { width: 100%; height: calc(100vh - 140px); }
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+    .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 12px; border: 0.5px solid #e0e0d8; }
+    .card h2 { font-size: 15px; font-weight: 500; color: #1D9E75; margin-bottom: 10px; }
+    .card p { font-size: 13px; line-height: 1.7; color: #5f5e5a; }
+    .score-box { background: #E1F5EE; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+    .score-label { font-size: 12px; color: #0F6E56; }
+    .score-value { font-size: 22px; font-weight: 500; color: #085041; }
+    .cp-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 0.5px solid #f0efe8; cursor: pointer; }
+    .cp-item:last-child { border-bottom: none; }
+    .cp-badge { width: 30px; height: 30px; border-radius: 50%; background: #EEEDFE; color: #534AB7; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+    .cp-info { flex: 1; }
+    .cp-name { font-size: 13px; font-weight: 500; }
+    .cp-desc { font-size: 12px; color: #888; margin-top: 2px; }
+    .cp-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
+    .status-lock { background: #f0efe8; color: #aaa; }
+    .status-open { background: #E1F5EE; color: #0F6E56; }
+    .status-done { background: #EEEDFE; color: #534AB7; }
+    #gps-alert { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 800; background: #1D9E75; color: white; padding: 14px 24px; border-radius: 50px; font-size: 14px; font-weight: 500; display: none; text-align: center; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 999; }
+    .overlay-box { background: white; border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 360px; }
+    .overlay-box h2 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+    .overlay-box p { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.6; }
+    .overlay-box label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
+    .overlay-box input { width: 100%; padding: 10px 12px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; }
+    .btn-green { width: 100%; padding: 13px; background: #1D9E75; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 4px; }
+    .btn-green:active { background: #0F6E56; }
+    .btn-gray { width: 100%; padding: 12px; background: white; color: #888; border: 0.5px solid #ddd; border-radius: 10px; font-size: 14px; cursor: pointer; margin-top: 8px; }
+    .success-icon { font-size: 48px; text-align: center; margin-bottom: 16px; }
+    .success-title { font-size: 20px; font-weight: 500; text-align: center; margin-bottom: 8px; color: #1D9E75; }
+    .success-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 24px; line-height: 1.6; }
+    #locate-btn { position: absolute; bottom: 24px; right: 16px; z-index: 500; width: 44px; height: 44px; background: white; border: 0.5px solid #ddd; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    #map-type-btn { position: absolute; top: 12px; right: 12px; z-index: 500; padding: 6px 12px; background: white; border: 0.5px solid #ddd; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; color: #2c2c2a; display: flex; align-items: center; gap: 5px; }
+    #map-type-btn:hover { background: #f5f5f0; }
+  </style>
+</head>
+<body>
+
+  <!-- 로그인 오버레이 -->
+  <div id="login-overlay" class="overlay">
+    <div class="overlay-box">
+      <h2>미션 시작하기</h2>
+      <p>이름과 전화번호 뒷자리를 입력해주세요</p>
+      <label>이름</label>
+      <input id="input-name" type="text" placeholder="홍길동">
+      <label>전화번호 뒷자리 4자리</label>
+      <input id="input-phone" type="text" placeholder="1234" maxlength="4">
+      <button class="btn-green" id="login-btn">시작하기</button>
+    </div>
+  </div>
+
+  <!-- 미션 입력 오버레이 -->
+  <div id="mission-overlay" class="overlay" style="display:none">
+    <div class="overlay-box">
+      <h2 id="mission-title">미션</h2>
+      <p id="mission-desc"></p>
+      <label>정답 입력</label>
+      <input id="mission-input" type="text" placeholder="답을 입력하세요">
+      <div id="mission-error" style="font-size:12px;color:#E24B4A;margin-top:-8px;margin-bottom:8px;display:none">
+        틀렸습니다. 다시 시도해보세요.
+      </div>
+      <button class="btn-green" id="check-answer-btn">확인</button>
+      <button class="btn-gray" id="close-mission-btn">닫기</button>
+    </div>
+  </div>
+
+  <!-- 성공 오버레이 -->
+  <div id="success-overlay" class="overlay" style="display:none">
+    <div class="overlay-box">
+      <div class="success-icon" id="success-icon">🎉</div>
+      <div class="success-title" id="success-title">완료!</div>
+      <div class="success-sub" id="success-sub"></div>
+      <button class="btn-green" id="close-success-btn">계속하기</button>
+    </div>
+  </div>
+
+  <!-- GPS 알림 -->
+  <div id="gps-alert"></div>
+
+  <!-- 헤더 -->
+  <header>
+    <h1>플레이아웃사이드 GPS 미션</h1>
+    <p id="header-sub">백련산 생태 탐험 · 2026</p>
+  </header>
+
+  <!-- 타이머 바 -->
+  <div class="timer-bar">
+    <div><div class="t-label">출발</div><div class="t-value" id="start-time">--:--</div></div>
+    <div style="text-align:center"><div class="t-label">경과 시간</div><div class="t-value" id="elapsed-time">00:00</div></div>
+    <div style="text-align:right"><div class="t-label">도착</div><div class="t-value" id="end-time">--:--</div></div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <div class="tab active" id="tab-map">지도</div>
+    <div class="tab" id="tab-mission">미션</div>
+  </div>
+
+  <!-- 지도 화면 -->
+  <div id="screen-map" class="screen active" style="position:relative">
+    <div id="map"></div>
+    <button id="locate-btn">📍</button>
+    <button id="map-type-btn">🛰️ 위성</button>
+  </div>
+
+  <!-- 미션 화면 -->
+  <div id="screen-mission" class="screen">
+    <div class="container">
+      <div class="score-box">
+        <span class="score-label">완료한 포인트</span>
+        <span class="score-value"><span id="score-current">0</span> / <span id="score-total">0</span></span>
+      </div>
+      <div class="card">
+        <h2>미션 안내</h2>
+        <p>출발 지점에 도착하면 GPS가 자동으로 인증합니다. 이후 원하는 순서로 CP를 방문하고 미션을 완료하세요. 모든 CP 완료 후 도착 지점으로 이동하세요!</p>
+      </div>
+      <div class="card">
+        <h2>체크포인트</h2>
+        <div id="cp-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Firebase 초기화 ────────────────────────────────────
+    var firebaseConfig = {
+      apiKey: "AIzaSyDqONjVeI3ACN2ZgaOFkUMkkuTvsBMcok0",
+      authDomain: "playoutside-gps.firebaseapp.com",
+      projectId: "playoutside-gps",
+      storageBucket: "playoutside-gps.firebasestorage.app",
+      messagingSenderId: "915320760860",
+      appId: "1:915320760860:web:9fd2a60c59e8e2e7e0cdd9",
+      measurementId: "G-ETE1B03HT1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+
+    // ── 기본 CP (Firestore 읽기 실패 시 폴백) ─────────────
+    var DEFAULT_CHECKPOINTS = [
+      { id:'S',   name:'출발 지점', lat:37.594798, lng:126.935307, color:'#1D9E75', mission:null, answer:null, type:'start', radius:30 },
+      { id:'CP1', name:'CP1', lat:37.596057, lng:126.932757, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'1', type:'normal' },
+      { id:'CP2', name:'CP2', lat:37.59704,  lng:126.934272, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'2', type:'normal' },
+      { id:'CP3', name:'CP3', lat:37.595289, lng:126.934993, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'3', type:'normal' },
+      { id:'CP4', name:'CP4', lat:37.595829, lng:126.935251, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'4', type:'normal' },
+      { id:'CP5', name:'CP5', lat:37.596775, lng:126.935238, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'5', type:'normal' },
+      { id:'CP6', name:'CP6', lat:37.595058, lng:126.935650, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'6', type:'normal' },
+      { id:'CP7', name:'CP7', lat:37.596149, lng:126.935140, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'7', type:'normal' },
+      { id:'CP8', name:'CP8', lat:37.595387, lng:126.935400, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'8', type:'normal' },
+      { id:'CP9', name:'CP9', lat:37.595953, lng:126.934823, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'9', type:'normal' },
+      { id:'F',   name:'도착 지점', lat:37.594798, lng:126.935307, color:'#D85A30', mission:null, answer:null, type:'end', radius:30 },
+    ];
+
+    // ── 전역 상태 ─────────────────────────────────────────
+    var checkpoints = DEFAULT_CHECKPOINTS;
+    var totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
+    var completedCPs  = new Set();
+    var nearbyAlerted = new Set();
+    var activeCPIndex = null;
+    var map, userMarker, markers = [];
+    var timerInterval, startTime;
+    var started = false;
+    var ended   = false;
+    var isSatellite = false;
+
+    var currentProgId = null;
+    var currentProgName = '백련산 생태 탐험 2026';
+    var userName = '';
+    var userPhone = '';
+    var userId = '';
+    var lastLocationUpdate = 0;  // GPS 위치 업데이트 throttle용
+
+    // ── 로그인 버튼 비활성화 (Firestore 로딩 중) ─────────
+    document.getElementById('login-btn').disabled = true;
+    document.getElementById('login-btn').textContent = '프로그램 불러오는 중...';
+
+    // ── Firestore에서 활성 프로그램 로드 ─────────────────
+    db.collection('config').doc('active').get().then(function(configDoc) {
+      if (!configDoc.exists || !configDoc.data().programId) {
+        // 활성 프로그램 없음 → 기본 CP 사용
+        enableLogin();
+        return;
+      }
+      currentProgId = configDoc.data().programId;
+      return db.collection('programs').doc(currentProgId).get();
+    }).then(function(progDoc) {
+      if (!progDoc || !progDoc.exists) { enableLogin(); return; }
+      var prog = progDoc.data();
+      currentProgName = prog.name || currentProgName;
+      if (prog.cps && prog.cps.length > 0) {
+        checkpoints = prog.cps.map(function(cp) {
+          return {
+            id:      cp.type === 'start' ? 'S' : cp.type === 'end' ? 'F' : cp.id,
+            name:    cp.name,
+            lat:     cp.lat,
+            lng:     cp.lng,
+            color:   cp.type === 'start' ? '#1D9E75' : cp.type === 'end' ? '#D85A30' : '#534AB7',
+            mission: cp.mission || null,
+            answer:  cp.answer || null,
+            type:    cp.type,
+            radius:  cp.radius || 30
+          };
+        });
+        totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
+        document.getElementById('score-total').textContent = totalNormalCPs;
+      }
+      enableLogin();
+    }).catch(function(err) {
+      console.error('Firestore 프로그램 로드 오류:', err);
+      // 오프라인 등 오류 시 기본 CP로 폴백
+      enableLogin();
+    });
+
+    function enableLogin() {
+      var btn = document.getElementById('login-btn');
+      btn.disabled = false;
+      btn.textContent = '시작하기';
+      document.getElementById('score-total').textContent = totalNormalCPs;
+    }
+
+    // ── 이벤트 연결 ──────────────────────────────────────
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('check-answer-btn').addEventListener('click', checkAnswer);
+    document.getElementById('close-mission-btn').addEventListener('click', function() {
+      document.getElementById('mission-overlay').style.display = 'none';
+    });
+    document.getElementById('close-success-btn').addEventListener('click', function() {
+      document.getElementById('success-overlay').style.display = 'none';
+    });
+    document.getElementById('locate-btn').addEventListener('click', locateMe);
+    document.getElementById('map-type-btn').addEventListener('click', toggleMapType);
+    document.getElementById('tab-map').addEventListener('click', function() { showTab('map', this); });
+    document.getElementById('tab-mission').addEventListener('click', function() { showTab('mission', this); });
+
+    // ── 알림음 ────────────────────────────────────────────
+    function playAlert(type) {
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var sequences = {
+          start:  [{ f:523, t:0 }, { f:659, t:0.18 }, { f:784, t:0.36 }],
+          cp:     [{ f:880, t:0 }, { f:880, t:0.2 }],
+          finish: [{ f:523, t:0 }, { f:659, t:0.15 }, { f:784, t:0.30 }, { f:1047, t:0.45 }]
+        };
+        (sequences[type] || []).forEach(function(s) {
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = s.f; osc.type = 'sine';
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + s.t);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + s.t + 0.35);
+          osc.start(ctx.currentTime + s.t);
+          osc.stop(ctx.currentTime + s.t + 0.4);
+        });
+      } catch(e) {}
+    }
+
+    // ── 로그인 ────────────────────────────────────────────
+    function login() {
+      var name  = document.getElementById('input-name').value.trim();
+      var phone = document.getElementById('input-phone').value.trim();
+      if (!name) { alert('이름을 입력해주세요'); return; }
+      if (phone.length !== 4) { alert('전화번호 뒷자리 4자리를 입력해주세요'); return; }
+      userName  = name;
+      userPhone = phone;
+      userId    = name + '_' + phone;
+      document.getElementById('header-sub').textContent = name + '님 · ' + currentProgName;
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('score-total').textContent = totalNormalCPs;
+      initMap();
+      renderCPList();
+      startGPSWatch();
+    }
+
+    // ── 출발 인증 → Firestore 기록 ───────────────────────
+    function recordStart() {
+      if (!currentProgId || !userId) return;
+      db.collection('participants').doc(currentProgId).collection('users').doc(userId).set({
+        name: userName,
+        phone: userPhone,
+        startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        finishedAt: null,
+        completedCPs: [],
+        location: null,
+        status: 'in-progress'
+      }).catch(function(err) {
+        console.error('출발 기록 오류:', err);
+      });
+    }
+
+    // ── CP 완료 → Firestore 업데이트 ─────────────────────
+    function recordCPComplete(cpIndex) {
+      if (!currentProgId || !userId) return;
+      db.collection('participants').doc(currentProgId).collection('users').doc(userId).update({
+        completedCPs: firebase.firestore.FieldValue.arrayUnion(cpIndex)
+      }).catch(function(err) {
+        console.error('CP 완료 기록 오류:', err);
+      });
+    }
+
+    // ── 도착 완료 → Firestore 업데이트 ───────────────────
+    function recordFinish() {
+      if (!currentProgId || !userId) return;
+      db.collection('participants').doc(currentProgId).collection('users').doc(userId).update({
+        finishedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'finished'
+      }).catch(function(err) {
+        console.error('도착 기록 오류:', err);
+      });
+    }
+
+    // ── GPS 위치 → Firestore 업데이트 (5초 throttle) ─────
+    function updateLocationFirestore(lat, lng) {
+      if (!currentProgId || !userId) return;
+      var now = Date.now();
+      if (now - lastLocationUpdate < 5000) return;
+      lastLocationUpdate = now;
+      db.collection('participants').doc(currentProgId).collection('users').doc(userId).update({
+        location: { lat: lat, lng: lng, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+      }).catch(function(err) {
+        console.error('위치 업데이트 오류:', err);
+      });
+    }
+
+    // ── 지도 초기화 ───────────────────────────────────────
+    function initMap() {
+      var centerLat = checkpoints.length > 0 ? checkpoints[0].lat : 37.5954;
+      var centerLng = checkpoints.length > 0 ? checkpoints[0].lng : 126.9349;
+      map = new naver.maps.Map('map', {
+        center: new naver.maps.LatLng(centerLat, centerLng),
+        zoom: 16
+      });
+      checkpoints.forEach(function(cp, i) {
+        var marker = new naver.maps.Marker({
+          position: new naver.maps.LatLng(cp.lat, cp.lng),
+          map: map,
+          icon: makeIcon(cp, i)
+        });
+        (function(idx) {
+          naver.maps.Event.addListener(marker, 'click', function() { openMission(idx); });
+        })(i);
+        markers.push(marker);
+      });
+    }
+
+    // ── 지도 타입 전환 ────────────────────────────────────
+    function toggleMapType() {
+      isSatellite = !isSatellite;
+      map.setMapTypeId(isSatellite ? naver.maps.MapTypeId.HYBRID : naver.maps.MapTypeId.NORMAL);
+      document.getElementById('map-type-btn').textContent = isSatellite ? '🗺️ 일반' : '🛰️ 위성';
+    }
+
+    // ── 마커 아이콘 ───────────────────────────────────────
+    function makeIcon(cp, i) {
+      var done  = completedCPs.has(i);
+      var bg    = done ? '#1D9E75' : cp.color;
+      var label = done ? '✓' : cp.id;
+      var size  = (cp.type === 'start' || cp.type === 'end') ? '36px' : '32px';
+      return {
+        content: '<div style="width:' + size + ';height:' + size + ';border-radius:50%;background:' + bg + ';color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">' + label + '</div>',
+        anchor: new naver.maps.Point(parseInt(size)/2, parseInt(size)/2)
+      };
+    }
+
+    function updateMarkers() {
+      checkpoints.forEach(function(cp, i) { markers[i].setIcon(makeIcon(cp, i)); });
+    }
+
+    // ── GPS 감지 ──────────────────────────────────────────
+    function startGPSWatch() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.watchPosition(function(pos) {
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+        var latlng = new naver.maps.LatLng(lat, lng);
+        if (userMarker) userMarker.setMap(null);
+        userMarker = new naver.maps.Marker({
+          position: latlng, map: map,
+          icon: {
+            content: '<div style="width:16px;height:16px;border-radius:50%;background:#378ADD;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
+            anchor: new naver.maps.Point(8, 8)
+          }
+        });
+
+        // Firestore 위치 업데이트 (진행 중일 때만)
+        if (started && !ended) {
+          updateLocationFirestore(lat, lng);
+        }
+
+        // 출발 자동 인증
+        if (!started) {
+          var s = checkpoints[0];
+          if (getDistance(lat, lng, s.lat, s.lng) <= (s.radius || 30)) {
+            started = true;
+            completedCPs.add(0);
+            startTimer();
+            recordStart();
+            updateMarkers();
+            renderCPList();
+            playAlert('start');
+            showGpsAlert('🚀 출발 인증 완료! 타이머 시작!');
+          }
+        }
+
+        // 도착 자동 인증
+        if (started && !ended) {
+          var ei = checkpoints.length - 1;
+          var endCP = checkpoints[ei];
+          if (getDistance(lat, lng, endCP.lat, endCP.lng) <= (endCP.radius || 30)) {
+            ended = true;
+            completedCPs.add(ei);
+            stopTimer();
+            recordFinish();
+            updateMarkers();
+            renderCPList();
+            playAlert('finish');
+            showSuccessEnd();
+          }
+        }
+
+        // 일반 CP 반경 감지
+        if (started && !ended) {
+          checkpoints.forEach(function(cp, i) {
+            if (cp.type !== 'normal' || completedCPs.has(i) || nearbyAlerted.has(i)) return;
+            if (getDistance(lat, lng, cp.lat, cp.lng) <= (cp.radius || 30)) {
+              nearbyAlerted.add(i);
+              playAlert('cp');
+              showGpsAlert('📍 ' + cp.name + ' 도착! 미션을 확인하세요');
+              setTimeout(function() { openMission(i); }, 1000);
+            }
+          });
+          checkpoints.forEach(function(cp, i) {
+            if (cp.type !== 'normal' || !nearbyAlerted.has(i) || completedCPs.has(i)) return;
+            if (getDistance(lat, lng, cp.lat, cp.lng) > 50) nearbyAlerted.delete(i);
+          });
+        }
+      }, function() {}, { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 });
+    }
+
+    // ── GPS 알림 ──────────────────────────────────────────
+    function showGpsAlert(msg) {
+      var el = document.getElementById('gps-alert');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(function() { el.style.display = 'none'; }, 3000);
+    }
+
+    // ── 거리 계산 ─────────────────────────────────────────
+    function getDistance(lat1, lng1, lat2, lng2) {
+      var R = 6371000;
+      var dLat = (lat2-lat1) * Math.PI / 180;
+      var dLng = (lng2-lng1) * Math.PI / 180;
+      var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+              Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+              Math.sin(dLng/2)*Math.sin(dLng/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // ── 미션 열기 ─────────────────────────────────────────
+    function openMission(i) {
+      var cp = checkpoints[i];
+      if (cp.type === 'start') {
+        alert(started ? '출발 인증 완료!' : '출발 지점 반경 30m 안으로 이동하면 GPS가 자동으로 인증합니다.');
+        return;
+      }
+      if (cp.type === 'end') {
+        alert(ended ? '도착 인증 완료!' : '도착 지점 반경 30m 안으로 이동하면 GPS가 자동으로 인증합니다.');
+        return;
+      }
+      if (!started) { alert('먼저 출발 지점에서 인증해주세요!'); return; }
+      if (completedCPs.has(i)) { alert('이미 완료한 포인트입니다!'); return; }
+      activeCPIndex = i;
+      document.getElementById('mission-title').textContent = cp.name + ' 미션';
+      document.getElementById('mission-desc').textContent  = cp.mission;
+      document.getElementById('mission-input').value = '';
+      document.getElementById('mission-error').style.display = 'none';
+      document.getElementById('mission-overlay').style.display = 'flex';
+    }
+
+    // ── 정답 확인 ─────────────────────────────────────────
+    function checkAnswer() {
+      var input = document.getElementById('mission-input').value.trim();
+      var cp    = checkpoints[activeCPIndex];
+      if (input === cp.answer) {
+        completedCPs.add(activeCPIndex);
+        recordCPComplete(activeCPIndex);
+        document.getElementById('mission-overlay').style.display = 'none';
+        var remaining = checkpoints.filter(function(c, idx) {
+          return c.type === 'normal' && !completedCPs.has(idx);
+        }).length;
+        document.getElementById('success-icon').textContent  = '🎉';
+        document.getElementById('success-title').textContent = '미션 완료!';
+        document.getElementById('success-sub').textContent   = remaining > 0
+          ? '정답입니다! 남은 포인트: ' + remaining + '/' + totalNormalCPs + '개'
+          : '모든 미션 완료! 이제 도착 지점으로 이동하세요. 🏃';
+        document.getElementById('success-overlay').style.display = 'flex';
+        updateMarkers();
+        renderCPList();
+      } else {
+        document.getElementById('mission-error').style.display = 'block';
+        document.getElementById('mission-input').value = '';
+        document.getElementById('mission-input').focus();
+      }
+    }
+
+    // ── 도착 완료 화면 ────────────────────────────────────
+    function showSuccessEnd() {
+      var elapsed = document.getElementById('elapsed-time').textContent;
+      document.getElementById('success-icon').textContent  = '🏆';
+      document.getElementById('success-title').textContent = '도착 완료!';
+      document.getElementById('success-sub').textContent   = '수고하셨어요!\n최종 기록: ' + elapsed;
+      document.getElementById('success-overlay').style.display = 'flex';
+    }
+
+    // ── CP 목록 렌더링 ────────────────────────────────────
+    function renderCPList() {
+      var list = document.getElementById('cp-list');
+      list.innerHTML = '';
+      checkpoints.forEach(function(cp, i) {
+        var done = completedCPs.has(i);
+        var statusClass, statusText, desc;
+        if (cp.type === 'start') {
+          statusClass = done ? 'status-done' : 'status-open';
+          statusText  = done ? '인증완료' : 'GPS 대기';
+          desc        = done ? '출발 인증 완료' : '출발 지점 30m 반경 진입 시 자동 인증';
+        } else if (cp.type === 'end') {
+          statusClass = done ? 'status-done' : 'status-lock';
+          statusText  = done ? '인증완료' : 'GPS 대기';
+          desc        = done ? '도착 인증 완료' : '도착 지점 30m 반경 진입 시 자동 인증';
+        } else {
+          statusClass = done ? 'status-done' : 'status-open';
+          statusText  = done ? '완료' : '미완료';
+          desc        = done ? '미션 완료' : '탭해서 미션 확인';
+        }
+        var badgeStyle = '';
+        if (cp.type === 'start') badgeStyle = 'background:#E1F5EE;color:#0F6E56';
+        if (cp.type === 'end')   badgeStyle = 'background:#FAECE7;color:#712B13';
+        if (done)                badgeStyle = 'background:#E1F5EE;color:#0F6E56';
+        var item = document.createElement('div');
+        item.className = 'cp-item';
+        item.innerHTML =
+          '<div class="cp-badge" style="' + badgeStyle + '">' + (done ? '✓' : cp.id) + '</div>' +
+          '<div class="cp-info"><div class="cp-name">' + cp.name + '</div><div class="cp-desc">' + desc + '</div></div>' +
+          '<span class="cp-status ' + statusClass + '">' + statusText + '</span>';
+        item.addEventListener('click', function() { openMission(i); });
+        list.appendChild(item);
+      });
+      var completedNormal = checkpoints.filter(function(c, idx) {
+        return c.type === 'normal' && completedCPs.has(idx);
+      }).length;
+      document.getElementById('score-current').textContent = completedNormal;
+      document.getElementById('score-total').textContent = totalNormalCPs;
+    }
+
+    // ── 타이머 ────────────────────────────────────────────
+    function startTimer() {
+      startTime = new Date();
+      var h = startTime.getHours().toString().padStart(2,'0');
+      var m = startTime.getMinutes().toString().padStart(2,'0');
+      document.getElementById('start-time').textContent = h + ':' + m;
+      timerInterval = setInterval(function() {
+        var diff = Math.floor((new Date() - startTime) / 1000);
+        document.getElementById('elapsed-time').textContent =
+          Math.floor(diff/60).toString().padStart(2,'0') + ':' + (diff%60).toString().padStart(2,'0');
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      var now = new Date();
+      document.getElementById('end-time').textContent =
+        now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    }
+
+    // ── 내 위치 ───────────────────────────────────────────
+    function locateMe() {
+      if (!map || !userMarker) return;
+      map.setCenter(userMarker.getPosition());
+      map.setZoom(17);
+    }
+
+    // ── 탭 전환 ───────────────────────────────────────────
+    function showTab(name, el) {
+      document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      document.getElementById('screen-' + name).classList.add('active');
+      el.classList.add('active');
+    }
+  </script>
+</body>
+</html>

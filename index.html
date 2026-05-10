@@ -127,37 +127,30 @@
     }
     .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.65); }
 
-    /* 다음 CP 배너 (하단) */
+    /* 다음 CP 배너 (하단 슬림) */
     #next-cp-banner {
-      display:none; position:absolute; bottom:16px; left:12px; right:12px;
-      background:rgba(10,10,10,0.82); backdrop-filter:blur(10px);
-      color:white; border-radius:16px; z-index:400;
-      display:none; flex-direction:row; align-items:center;
-      padding:10px 16px; gap:12px;
+      display:none; position:absolute; bottom:64px; left:10px; right:10px;
+      background:rgba(10,10,10,0.78); backdrop-filter:blur(10px);
+      color:white; border-radius:12px; z-index:400;
+      flex-direction:row; align-items:center;
+      padding:7px 12px; gap:8px; height:40px;
     }
     .next-cp-arrow {
-      font-size:36px; font-weight:900; color:#5DCAA5; line-height:1;
-      flex-shrink:0; width:44px; text-align:center;
+      font-size:18px; font-weight:900; color:#5DCAA5; line-height:1;
+      flex-shrink:0; width:22px; text-align:center;
     }
-    .next-cp-body { flex:1; min-width:0; }
-    .next-cp-label { font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:1px; }
-    .next-cp-name  { font-size:14px; font-weight:600; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .next-cp-sub   { font-size:11px; color:rgba(255,255,255,0.55); margin-top:1px; }
-    .next-cp-dist-big { font-size:22px; font-weight:700; color:#5DCAA5; flex-shrink:0; text-align:right; line-height:1; }
-    .next-cp-dist-unit { font-size:11px; color:rgba(255,255,255,0.5); text-align:right; margin-top:2px; }
+    .next-cp-body { flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
+    .next-cp-label { display:none; }
+    .next-cp-name  { font-size:13px; font-weight:600; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .next-cp-sub   { font-size:11px; color:rgba(255,255,255,0.5); white-space:nowrap; flex-shrink:0; }
+    .next-cp-dist-big { font-size:15px; font-weight:700; color:#5DCAA5; flex-shrink:0; text-align:right; line-height:1; }
+    .next-cp-dist-unit { font-size:11px; color:rgba(255,255,255,0.45); margin-left:2px; }
     .off-trail-warn { background:rgba(180,30,30,0.88) !important; }
 
-    /* 비상 연락처 버튼 */
-    #emergency-btn {
-      display:none; position:absolute; bottom:90px; right:14px; z-index:500;
-      width:44px; height:44px; background:#E53E3E; border:2px solid white;
-      border-radius:50%; font-size:20px; cursor:pointer;
-      box-shadow:0 3px 10px rgba(229,62,62,0.5);
-      justify-content:center; align-items:center;
-    }
-    #emergency-btn:active { transform:scale(0.93); }
+    /* 비상 연락처 버튼 — 숨김 */
+    #emergency-btn { display:none !important; }
 
-    /* 현재 위치 버튼 — 하단 바 + 배너 위로 */
+    /* 현재 위치 버튼 */
     #locate-btn { bottom: 76px; right: 14px; }
     /* 미션 화면 하단 여백 (하단 바 겹침 방지) */
     #screen-mission .container { padding-bottom: 70px; }
@@ -253,18 +246,17 @@
     <div id="next-cp-banner">
       <div class="next-cp-arrow" id="next-cp-arrow">↑</div>
       <div class="next-cp-body">
-        <div class="next-cp-label" id="next-cp-label">다음 체크포인트</div>
         <div class="next-cp-name" id="next-cp-name-text">-</div>
         <div class="next-cp-sub" id="next-cp-dir">방향 확인 중</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
+      <div style="display:flex;align-items:baseline;gap:2px;flex-shrink:0">
         <div class="next-cp-dist-big" id="next-cp-dist">-</div>
-        <div class="next-cp-dist-unit" id="next-cp-unit">앞</div>
+        <div class="next-cp-dist-unit" id="next-cp-unit">km</div>
       </div>
     </div>
 
-    <!-- 비상 연락처 -->
-    <button id="emergency-btn" title="비상 연락처">🆘</button>
+    <!-- 비상 연락처 (숨김) -->
+    <button id="emergency-btn" title="비상 연락처" style="display:none">🆘</button>
 
     <button id="locate-btn">📍</button>
     <button id="map-type-btn">🛰️ 위성</button>

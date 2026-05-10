@@ -868,13 +868,16 @@
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.noTimeLimit || (prog.modeSettings && prog.modeSettings.noTimeLimit) ? '∞' : (prog.time||'-')) + '</div><div class="prog-stat-label">제한(분)</div></div>' +
           '<div class="prog-stat"><div class="prog-stat-value">' + (prog.participants||'-') + '</div><div class="prog-stat-label">참가자</div></div>' +
         '</div>' +
-        '<div class="prog-card-footer" style="flex-wrap:wrap;gap:6px">' +
-          '<button class="btn btn-sm activate-btn" data-id="' + prog.id + '" style="' + (isActive ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : '') + '">' +
-            '<i class="ti ti-player-play"></i> ' + (isActive ? '실행 중' : '참가자에 적용') + '</button>' +
-          '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '"><i class="ti ti-map-pin"></i> CP 편집</button>' +
-          '<button class="btn btn-sm prog-setting-btn" data-id="' + prog.id + '"><i class="ti ti-settings"></i> 설정</button>' +
-          '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '"><i class="ti ti-trash"></i></button>' +
-          '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="margin-left:auto"><i class="ti ti-users"></i> 참가자 현황</button>' +
+        '<div class="prog-card-footer" style="flex-direction:column;gap:8px">' +
+          '<div style="display:flex;gap:6px;align-items:center">' +
+            '<button class="btn btn-sm activate-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;' + (isActive ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : '') + '">' +
+              '<i class="ti ti-player-play"></i> ' + (isActive ? '실행 중' : '참가자에 적용') + '</button>' +
+            '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-map-pin"></i> CP 편집</button>' +
+            '<button class="btn btn-sm prog-setting-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-settings"></i> 설정</button>' +
+            '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '" style="flex-shrink:0"><i class="ti ti-trash"></i></button>' +
+          '</div>' +
+          '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="width:100%;justify-content:center;color:#534AB7;border-color:#EEEDFE;background:#EEEDFE">' +
+            '<i class="ti ti-users"></i> 참가자 현황</button>' +
         '</div>';
       grid.appendChild(card);
     });

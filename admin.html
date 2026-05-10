@@ -919,11 +919,12 @@
       btn.addEventListener('click', function() {
         var prog = programs.find(function(p) { return p.id === btn.dataset.id; });
         if (!prog) return;
+        // showScreen 먼저 (내부에서 resetForm 호출) → 그 다음 editingProgId·fillForm 설정
+        showScreen('new-program');
         editingProgId = prog.id;
         fillForm(prog);
         document.getElementById('prog-form-title').textContent = '프로그램 설정 편집';
         document.getElementById('save-prog-btn-label').textContent = '변경사항 저장';
-        showScreen('new-program');
       });
     });
     document.querySelectorAll('.prog-del-btn').forEach(function(btn) {

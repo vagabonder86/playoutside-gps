@@ -142,10 +142,10 @@
         </div>
       </div>
 
-      <!-- 새 프로그램 -->
+      <!-- 새 프로그램 / 프로그램 편집 (공용 폼) -->
       <div class="screen" id="screen-new-program">
         <div class="form-card">
-          <div class="form-title">새 프로그램 만들기</div>
+          <div class="form-title" id="prog-form-title">새 프로그램 만들기</div>
           <div class="form-group">
             <label>프로그램 이름 *</label>
             <input type="text" id="prog-name" placeholder="예: 백련산 생태 탐험 2026">
@@ -332,7 +332,7 @@
           <div style="display:flex;gap:8px;margin-top:24px">
             <button class="btn" id="cancel-btn" style="flex:1;justify-content:center">취소</button>
             <button class="btn btn-primary" id="save-prog-btn" style="flex:2;justify-content:center">
-              <i class="ti ti-check"></i> 저장 후 CP 편집
+              <i class="ti ti-check"></i> <span id="save-prog-btn-label">저장 후 CP 편집</span>
             </button>
           </div>
         </div>
@@ -567,6 +567,7 @@
   var selectedMode = 'geocaching';
   var deleteTargetId = null;
   var currentProgId = null;
+  var editingProgId = null;      // 편집 중인 프로그램 ID (null = 신규 생성)
   var adminMap = null;
   var adminMarkers = [];
   var cpData = [];
@@ -728,6 +729,9 @@
   }
 
   function resetForm() {
+    editingProgId = null;
+    document.getElementById('prog-form-title').textContent = '새 프로그램 만들기';
+    document.getElementById('save-prog-btn-label').textContent = '저장 후 CP 편집';
     ['prog-name','prog-location','prog-date','prog-time','prog-participants','prog-manager','prog-desc'].forEach(function(id) {
       document.getElementById(id).value = '';
     });
@@ -742,33 +746,109 @@
     showModeSettings('geocaching');
   }
 
-  // ── 프로그램 저장 (Firestore) ──────────────────────────
+  // ── 기존 프로그램 데이터로 폼 채우기 ─────────────────
+  function fillForm(prog) {
+    var ms = prog.modeSettings || {};
+    document.getElementById('prog-name').value         = prog.name         || '';
+    document.getElementById('prog-location').value     = prog.location     || '';
+    document.getElementById('prog-date').value         = prog.date         || '';
+    document.getElementById('prog-participants').value = prog.participants  || '';
+    document.getElementById('prog-manager').value      = prog.manager      || '';
+    document.getElementById('prog-desc').value         = prog.desc         || '';
+
+    // 운영 방식
+    selectedMode = prog.mode || 'geocaching';
+    document.querySelectorAll('.mode-option').forEach(function(m) {
+      m.classList.toggle('selected', m.dataset.mode === selectedMode);
+    });
+    showModeSettings(selectedMode);
+
+    // 제한시간 (하이킹 noTimeLimit 우선)
+    var timeInput = document.getElementById('prog-time');
+    if (ms.noTimeLimit) {
+      document.getElementById('hike-no-timelimit').checked = true;
+      timeInput.disabled    = true;
+      timeInput.value       = '';
+      timeInput.placeholder = '제한시간 없음';
+      timeInput.style.color = '#aaa';
+    } else {
+      document.getElementById('hike-no-timelimit').checked = false;
+      timeInput.disabled    = false;
+      timeInput.value       = prog.time || '';
+      timeInput.placeholder = '90';
+      timeInput.style.color = '';
+    }
+
+    // 지오캐싱 설정
+    if (ms.baseScore   !== undefined) document.getElementById('geo-base-score').value    = ms.baseScore;
+    if (ms.hint)                       document.getElementById('geo-hint').value          = ms.hint;
+    if (ms.hintPenalty !== undefined) document.getElementById('geo-hint-penalty').value  = ms.hintPenalty;
+    if (ms.wrongPenalty!== undefined) document.getElementById('geo-wrong-penalty').value = ms.wrongPenalty;
+    if (ms.reveal)                     document.getElementById('geo-reveal').value        = ms.reveal;
+    if (ms.minCp       !== undefined) document.getElementById('geo-min-cp').value        = ms.minCp;
+
+    // 오리엔티어링 설정
+    if (ms.start)                      document.getElementById('ori-start').value         = ms.start;
+    if (ms.rank)                       document.getElementById('ori-rank').value          = ms.rank;
+    if (ms.penalty     !== undefined) document.getElementById('ori-penalty').value       = ms.penalty;
+    if (ms.team) {
+      document.getElementById('ori-team').value = ms.team;
+      document.getElementById('ori-team-size-wrap').style.display = ms.team === 'team' ? 'block' : 'none';
+    }
+    if (ms.teamSize    !== undefined) document.getElementById('ori-team-size').value     = ms.teamSize;
+
+    // 하이킹 설정
+    if (ms.leader)                     document.getElementById('hike-leader').value       = ms.leader;
+    if (ms.share)                      document.getElementById('hike-share').value        = ms.share;
+    if (ms.radius      !== undefined) document.getElementById('hike-radius').value       = ms.radius;
+    if (ms.check       !== undefined) document.getElementById('hike-check').value        = ms.check;
+    if (ms.emergency)                  document.getElementById('hike-emergency').value    = ms.emergency;
+  }
+
+  // ── 프로그램 저장 / 수정 (Firestore) ─────────────────
   function saveProgram() {
     var name = document.getElementById('prog-name').value.trim();
     if (!name) { alert('프로그램 이름을 입력해주세요'); return; }
-    var prog = {
-      name: name,
-      location: document.getElementById('prog-location').value.trim(),
-      date: document.getElementById('prog-date').value,
-      time: document.getElementById('prog-time').value,
+
+    var progData = {
+      name:         name,
+      location:     document.getElementById('prog-location').value.trim(),
+      date:         document.getElementById('prog-date').value,
+      time:         document.getElementById('hike-no-timelimit').checked ? '' : document.getElementById('prog-time').value,
       participants: document.getElementById('prog-participants').value,
-      manager: document.getElementById('prog-manager').value.trim(),
-      desc: document.getElementById('prog-desc').value.trim(),
-      mode: selectedMode,
+      manager:      document.getElementById('prog-manager').value.trim(),
+      desc:         document.getElementById('prog-desc').value.trim(),
+      mode:         selectedMode,
       modeSettings: getModeSettings(),
-      cps: [],
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+
     var btn = document.getElementById('save-prog-btn');
     btn.disabled = true;
-    db.collection('programs').add(prog).then(function(docRef) {
-      btn.disabled = false;
-      showScreen('cp-editor', docRef.id);
-    }).catch(function(err) {
-      btn.disabled = false;
-      console.error('프로그램 저장 오류:', err);
-      alert('저장 중 오류가 발생했습니다: ' + err.message);
-    });
+
+    if (editingProgId) {
+      // ── 기존 프로그램 수정 ─────────────────────────────
+      db.collection('programs').doc(editingProgId).update(progData).then(function() {
+        btn.disabled = false;
+        editingProgId = null;
+        showScreen('programs');
+      }).catch(function(err) {
+        btn.disabled = false;
+        console.error('프로그램 수정 오류:', err);
+        alert('저장 중 오류가 발생했습니다: ' + err.message);
+      });
+    } else {
+      // ── 신규 프로그램 생성 ─────────────────────────────
+      progData.cps       = [];
+      progData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      db.collection('programs').add(progData).then(function(docRef) {
+        btn.disabled = false;
+        showScreen('cp-editor', docRef.id);
+      }).catch(function(err) {
+        btn.disabled = false;
+        console.error('프로그램 저장 오류:', err);
+        alert('저장 중 오류가 발생했습니다: ' + err.message);
+      });
+    }
   }
 
   // ── 프로그램 목록 렌더링 ───────────────────────────────
@@ -803,6 +883,7 @@
           '<button class="btn btn-sm activate-btn" data-id="' + prog.id + '" style="' + (isActive ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : '') + '">' +
             '<i class="ti ti-player-play"></i> ' + (isActive ? '실행 중' : '참가자에 적용') + '</button>' +
           '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '"><i class="ti ti-map-pin"></i> CP 편집</button>' +
+          '<button class="btn btn-sm prog-setting-btn" data-id="' + prog.id + '"><i class="ti ti-settings"></i> 설정</button>' +
           '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '"><i class="ti ti-trash"></i></button>' +
           '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="margin-left:auto"><i class="ti ti-users"></i> 참가자 현황</button>' +
         '</div>';
@@ -833,6 +914,17 @@
     });
     document.querySelectorAll('.cp-edit-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { showScreen('cp-editor', btn.dataset.id); });
+    });
+    document.querySelectorAll('.prog-setting-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var prog = programs.find(function(p) { return p.id === btn.dataset.id; });
+        if (!prog) return;
+        editingProgId = prog.id;
+        fillForm(prog);
+        document.getElementById('prog-form-title').textContent = '프로그램 설정 편집';
+        document.getElementById('save-prog-btn-label').textContent = '변경사항 저장';
+        showScreen('new-program');
+      });
     });
     document.querySelectorAll('.prog-del-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {

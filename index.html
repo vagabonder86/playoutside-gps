@@ -561,37 +561,27 @@
     function renderCPList() {
       var list = document.getElementById('cp-list');
       list.innerHTML = '';
-      var endIdx = checkpoints.findIndex(function(c) { return c.type === 'end'; });
       checkpoints.forEach(function(cp, i) {
-        // 출발·도착 같은 위치: 도착 항목은 목록에서 숨김
-        if (startEndSame && cp.type === 'end') return;
-
         var done = completedCPs.has(i);
         var statusClass, statusText, desc, badgeLabel, badgeStyle;
 
         if (cp.type === 'start') {
-          if (startEndSame) {
-            // 합쳐진 출발·도착 항목
-            var endDone = completedCPs.has(endIdx);
-            var bothDone = done && endDone;
-            statusClass = bothDone ? 'status-done' : done ? 'status-open' : 'status-open';
-            statusText  = bothDone ? '완료' : done ? '출발완료' : 'GPS 대기';
-            desc        = bothDone ? '출발·도착 모두 완료'
-                        : done     ? '출발 완료 — 미션 후 이곳으로 복귀하세요'
-                                   : '이 지점에서 출발 및 도착 (30m 반경 자동 인증)';
-            badgeLabel  = bothDone ? '✓' : 'S·F';
-            badgeStyle  = 'background:#1D9E75;color:white;font-size:10px';
-          } else {
-            statusClass = done ? 'status-done' : 'status-open';
-            statusText  = done ? '인증완료' : 'GPS 대기';
-            desc        = done ? '출발 인증 완료' : '출발 지점 30m 반경 진입 시 자동 인증';
-            badgeLabel  = done ? '✓' : 'S';
-            badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : 'background:#E1F5EE;color:#0F6E56';
-          }
-        } else if (cp.type === 'end') {
-          statusClass = done ? 'status-done' : 'status-lock';
+          statusClass = done ? 'status-done' : 'status-open';
           statusText  = done ? '인증완료' : 'GPS 대기';
-          desc        = done ? '도착 인증 완료' : '도착 지점 30m 반경 진입 시 자동 인증';
+          desc        = done ? '출발 인증 완료'
+                             : startEndSame ? '출발 지점 — 미션 완료 후 이곳으로 복귀'
+                                           : '출발 지점 30m 반경 진입 시 자동 인증';
+          badgeLabel  = done ? '✓' : 'S';
+          badgeStyle  = 'background:#E1F5EE;color:#0F6E56';
+        } else if (cp.type === 'end') {
+          var allNormalDone = checkpoints.every(function(c, idx) {
+            return c.type !== 'normal' || completedCPs.has(idx);
+          });
+          statusClass = done ? 'status-done' : (startEndSame && !allNormalDone) ? 'status-lock' : 'status-lock';
+          statusText  = done ? '인증완료' : 'GPS 대기';
+          desc        = done ? '도착 인증 완료'
+                             : startEndSame ? '모든 미션 완료 후 출발 지점으로 복귀 시 자동 인증'
+                                           : '도착 지점 30m 반경 진입 시 자동 인증';
           badgeLabel  = done ? '✓' : 'F';
           badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : 'background:#FAECE7;color:#712B13';
         } else {
@@ -606,7 +596,7 @@
         item.className = 'cp-item';
         item.innerHTML =
           '<div class="cp-badge" style="' + badgeStyle + '">' + badgeLabel + '</div>' +
-          '<div class="cp-info"><div class="cp-name">' + cp.name + (startEndSame && cp.type === 'start' ? ' <span style="font-size:10px;color:#888">(출발+도착)</span>' : '') + '</div><div class="cp-desc">' + desc + '</div></div>' +
+          '<div class="cp-info"><div class="cp-name">' + cp.name + '</div><div class="cp-desc">' + desc + '</div></div>' +
           '<span class="cp-status ' + statusClass + '">' + statusText + '</span>';
         item.addEventListener('click', function() { openMission(i); });
         list.appendChild(item);

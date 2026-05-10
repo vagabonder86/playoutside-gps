@@ -625,7 +625,7 @@
         document.getElementById('rec-prog-name').textContent = currentProgName;
         document.getElementById('rec-user-info').textContent = name + '님 · ' + phone;
 
-        if (existingData && existingData.status !== 'not-started') {
+        if (existingData && (existingData.status === 'in-progress' || existingData.status === 'finished')) {
           // ── 기존 진행상황 복원 ──────────────────────────
           var saved = existingData.completedCPs || [];
           saved.forEach(function(idx) {

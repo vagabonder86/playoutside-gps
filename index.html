@@ -77,10 +77,12 @@
     <div class="overlay-box">
       <h2 id="mission-title">미션</h2>
       <p id="mission-desc"></p>
-      <label>정답 입력</label>
-      <input id="mission-input" type="text" placeholder="답을 입력하세요">
-      <div id="mission-error" style="font-size:12px;color:#E24B4A;margin-top:-8px;margin-bottom:8px;display:none">
-        틀렸습니다. 다시 시도해보세요.
+      <div id="mission-input-wrap">
+        <label>정답 입력</label>
+        <input id="mission-input" type="text" placeholder="답을 입력하세요">
+        <div id="mission-error" style="font-size:12px;color:#E24B4A;margin-top:-8px;margin-bottom:8px;display:none">
+          틀렸습니다. 다시 시도해보세요.
+        </div>
       </div>
       <button class="btn-green" id="check-answer-btn">확인</button>
       <button class="btn-gray" id="close-mission-btn">닫기</button>
@@ -615,9 +617,14 @@
       if (completedCPs.has(i)) { alert('이미 완료한 포인트입니다!'); return; }
       activeCPIndex = i;
       document.getElementById('mission-title').textContent = cp.name + ' 미션';
-      document.getElementById('mission-desc').textContent  = cp.mission;
-      document.getElementById('mission-input').value = '';
+      document.getElementById('mission-desc').textContent  = cp.mission || '이 지점을 방문했습니다.';
       document.getElementById('mission-error').style.display = 'none';
+
+      var hasAnswer = cp.answer && cp.answer.trim() !== '';
+      // 정답 없음 → 입력창 숨기고 바로 완료 버튼만 표시
+      document.getElementById('mission-input-wrap').style.display = hasAnswer ? 'block' : 'none';
+      document.getElementById('check-answer-btn').textContent = hasAnswer ? '확인' : '✅ 방문 완료';
+      document.getElementById('mission-input').value = '';
       document.getElementById('mission-overlay').style.display = 'flex';
     }
 
@@ -625,7 +632,8 @@
     function checkAnswer() {
       var input = document.getElementById('mission-input').value.trim();
       var cp    = checkpoints[activeCPIndex];
-      if (input === cp.answer) {
+      var hasAnswer = cp.answer && cp.answer.trim() !== '';
+      if (!hasAnswer || input === cp.answer) {
         completedCPs.add(activeCPIndex);
         recordCPComplete(activeCPIndex);
         document.getElementById('mission-overlay').style.display = 'none';

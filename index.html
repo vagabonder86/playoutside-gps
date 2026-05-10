@@ -516,23 +516,35 @@
           }
         }
 
-        // 도착 자동 인증 (출발·도착 같은 위치면 모든 미션 완료 후에만)
+        // 도착 자동 인증 (모든 미션 완료 후에만)
         if (started && !ended) {
           var ei = checkpoints.length - 1;
-          var endCP = checkpoints[ei];
+          var endCPobj = checkpoints[ei];
           var allNormalDone = checkpoints.every(function(c, idx) {
             return c.type !== 'normal' || completedCPs.has(idx);
           });
-          var canFinish = !startEndSame || allNormalDone;
-          if (canFinish && getDistance(lat, lng, endCP.lat, endCP.lng) <= (endCP.radius || 30)) {
-            ended = true;
-            completedCPs.add(ei);
-            stopTimer();
-            recordFinish();
-            updateMarkers();
-            renderCPList();
-            playAlert('finish');
-            showSuccessEnd();
+          var distToEnd = getDistance(lat, lng, endCPobj.lat, endCPobj.lng);
+          if (distToEnd <= (endCPobj.radius || 30)) {
+            if (allNormalDone) {
+              // 모든 미션 완료 → 도착 인증
+              ended = true;
+              completedCPs.add(ei);
+              stopTimer();
+              recordFinish();
+              updateMarkers();
+              renderCPList();
+              playAlert('finish');
+              showSuccessEnd();
+            } else if (!nearbyAlerted.has('finish-warn')) {
+              // 미션 미완료 상태로 도착 지점 진입 → 안내
+              nearbyAlerted.add('finish-warn');
+              var remaining = checkpoints.filter(function(c, idx) {
+                return c.type === 'normal' && !completedCPs.has(idx);
+              }).length;
+              showGpsAlert('⚠️ 미션 ' + remaining + '개 남았습니다! 먼저 완료하세요');
+            }
+          } else {
+            nearbyAlerted.delete('finish-warn');
           }
         }
 
@@ -582,7 +594,21 @@
         return;
       }
       if (cp.type === 'end') {
-        alert(ended ? '도착 인증 완료!' : '도착 지점 반경 30m 안으로 이동하면 GPS가 자동으로 인증합니다.');
+        if (ended) {
+          alert('🏆 도착 인증 완료!');
+        } else {
+          var allDone = checkpoints.every(function(c, idx) {
+            return c.type !== 'normal' || completedCPs.has(idx);
+          });
+          if (!allDone) {
+            var left = checkpoints.filter(function(c, idx) {
+              return c.type === 'normal' && !completedCPs.has(idx);
+            }).length;
+            alert('⚠️ 미션 ' + left + '개를 먼저 완료해야 도착 인증이 됩니다!');
+          } else {
+            alert('도착 지점 반경 30m 안으로 이동하면 GPS가 자동으로 인증합니다.');
+          }
+        }
         return;
       }
       if (!started) { alert('먼저 출발 지점에서 인증해주세요!'); return; }

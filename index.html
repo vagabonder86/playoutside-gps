@@ -1086,16 +1086,6 @@
     function zoomIn()  { if (map) map.setZoom(map.getZoom() + 1); }
     function zoomOut() { if (map) map.setZoom(map.getZoom() - 1); }
 
-    // 하단 바 이벤트
-    document.getElementById('bb-normal').addEventListener('click', function() { setMapType('normal'); showTab('map'); });
-    document.getElementById('bb-satellite').addEventListener('click', function() { setMapType('satellite'); showTab('map'); });
-    document.getElementById('bb-record').addEventListener('click', function() { showTab('mission'); });
-    document.getElementById('bb-zoom-in').addEventListener('click', zoomIn);
-    document.getElementById('bb-zoom-out').addEventListener('click', zoomOut);
-
-    // 기존 탭 이벤트 (이전 참조 제거)
-    // document.getElementById('tab-map') → 없음
-    // document.getElementById('tab-mission') → 없음
   </script>
 
   <!-- ── 하단 컨트롤 바 ─────────────────────────────────── -->
@@ -1114,5 +1104,14 @@
       <button class="bb-z" id="bb-zoom-out">−</button>
     </div>
   </div>
+
+  <script>
+    // 하단 바 이벤트 (HTML 렌더링 후 연결)
+    document.getElementById('bb-normal').addEventListener('click', function() { setMapType('normal'); showTab('map'); });
+    document.getElementById('bb-satellite').addEventListener('click', function() { setMapType('satellite'); showTab('map'); });
+    document.getElementById('bb-record').addEventListener('click', function() { showTab('mission'); });
+    document.getElementById('bb-zoom-in').addEventListener('click', function() { if (map) map.setZoom(map.getZoom() + 1); });
+    document.getElementById('bb-zoom-out').addEventListener('click', function() { if (map) map.setZoom(map.getZoom() - 1); });
+  </script>
 </body>
 </html>

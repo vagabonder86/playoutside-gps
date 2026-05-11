@@ -287,6 +287,10 @@
     <div class="overlay-box">
       <h2 id="mission-title">미션</h2>
       <p id="mission-desc"></p>
+      <div id="mission-hint-wrap" style="display:none;margin-bottom:14px">
+        <button id="show-hint-btn" style="width:100%;padding:9px;background:#FAEEDA;color:#633806;border:0.5px solid #f0d8b0;border-radius:8px;font-size:13px;cursor:pointer">💡 힌트 이미지 보기</button>
+        <img id="mission-hint-image" src="" alt="힌트" style="display:none;width:100%;border-radius:10px;margin-top:8px;max-height:200px;object-fit:cover">
+      </div>
       <div id="mission-input-wrap">
         <label>정답 입력</label>
         <input id="mission-input" type="text" placeholder="답을 입력하세요">
@@ -389,6 +393,11 @@
       <div class="rec-section-title">체크포인트</div>
       <div id="cp-list"></div>
     </div>
+    <!-- 실시간 순위 -->
+    <div class="rec-section" id="leaderboard-section" style="display:none">
+      <div class="rec-section-title">실시간 순위</div>
+      <div id="leaderboard-list"></div>
+    </div>
     <div style="height:80px"></div>
   </div>
 
@@ -467,6 +476,13 @@
           availablePrograms.push(Object.assign({ id: doc.id }, doc.data()));
         });
         renderProgramSelection();
+        // URL 파라미터로 프로그램 자동 선택 (?prog=ID)
+        var urlParams = new URLSearchParams(window.location.search);
+        var progId = urlParams.get('prog');
+        if (progId) {
+          var prog = availablePrograms.find(function(p) { return p.id === progId; });
+          if (prog) { selectProgram(prog); return; }
+        }
       }).catch(function(err) {
         console.error('프로그램 목록 로드 오류:', err);
         document.getElementById('sel-list').innerHTML =
@@ -526,15 +542,16 @@
       if (prog.cps && prog.cps.length > 0) {
         checkpoints = prog.cps.map(function(cp) {
           return {
-            id:      cp.type === 'start' ? 'S' : cp.type === 'end' ? 'F' : cp.id,
-            name:    cp.type === 'start' ? '출발 지점' : cp.type === 'end' ? '도착 지점' : cp.name,
-            lat:     cp.lat,
-            lng:     cp.lng,
-            color:   cp.type === 'start' ? '#1D9E75' : cp.type === 'end' ? '#D85A30' : '#534AB7',
-            mission: cp.mission || null,
-            answer:  cp.answer || null,
-            type:    cp.type,
-            radius:  cp.radius || 30
+            id:        cp.type === 'start' ? 'S' : cp.type === 'end' ? 'F' : cp.id,
+            name:      cp.type === 'start' ? '출발 지점' : cp.type === 'end' ? '도착 지점' : cp.name,
+            lat:       cp.lat,
+            lng:       cp.lng,
+            color:     cp.type === 'start' ? '#1D9E75' : cp.type === 'end' ? '#D85A30' : '#534AB7',
+            mission:   cp.mission || null,
+            answer:    cp.answer || null,
+            hintImage: cp.hintImage || null,
+            type:      cp.type,
+            radius:    cp.radius || 30
           };
         });
         totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
@@ -575,6 +592,16 @@
       document.getElementById('success-overlay').style.display = 'none';
     });
     document.getElementById('locate-btn').addEventListener('click', locateMe);
+    document.getElementById('show-hint-btn').addEventListener('click', function() {
+      var img = document.getElementById('mission-hint-image');
+      if (img.style.display === 'none') {
+        img.style.display = 'block';
+        this.textContent = '💡 힌트 이미지 숨기기';
+      } else {
+        img.style.display = 'none';
+        this.textContent = '💡 힌트 이미지 보기';
+      }
+    });
 
     // ── 알림음 ────────────────────────────────────────────
     function playAlert(type) {
@@ -663,6 +690,7 @@
           initMap();
           renderCPList();
           startGPSWatch();
+          subscribeLeaderboard();
           if (currentProgMode === 'hiking') initHikingUI();
 
           if (existingData.status === 'finished') {
@@ -675,6 +703,7 @@
           initMap();
           renderCPList();
           startGPSWatch();
+          subscribeLeaderboard();
           if (currentProgMode === 'hiking') initHikingUI();
         }
       }
@@ -1007,8 +1036,20 @@
       document.getElementById('mission-desc').textContent  = cp.mission || '이 지점을 방문했습니다.';
       document.getElementById('mission-error').style.display = 'none';
 
+      // 힌트 이미지
+      var hintWrap = document.getElementById('mission-hint-wrap');
+      var hintImg  = document.getElementById('mission-hint-image');
+      var hintBtn  = document.getElementById('show-hint-btn');
+      if (cp.hintImage) {
+        hintImg.src = cp.hintImage;
+        hintImg.style.display = 'none';
+        hintBtn.textContent = '💡 힌트 이미지 보기';
+        hintWrap.style.display = 'block';
+      } else {
+        hintWrap.style.display = 'none';
+      }
+
       var hasAnswer = cp.answer && cp.answer.trim() !== '';
-      // 정답 없음 → 입력창 숨기고 바로 완료 버튼만 표시
       document.getElementById('mission-input-wrap').style.display = hasAnswer ? 'block' : 'none';
       document.getElementById('check-answer-btn').textContent = hasAnswer ? '확인' : '✅ 방문 완료';
       document.getElementById('mission-input').value = '';
@@ -1272,6 +1313,77 @@
                              gpxRoute[i+1].lat, gpxRoute[i+1].lng);
       }
       return total;
+    }
+
+    // ── 실시간 순위 리더보드 ──────────────────────────────
+    var leaderboardUnsubscribe = null;
+
+    function subscribeLeaderboard() {
+      if (!currentProgId || leaderboardUnsubscribe) return;
+      document.getElementById('leaderboard-section').style.display = 'block';
+      leaderboardUnsubscribe = db.collection('participants').doc(currentProgId)
+        .collection('users').onSnapshot(function(snapshot) {
+          var all = [];
+          snapshot.forEach(function(doc) { all.push(Object.assign({ _id: doc.id }, doc.data())); });
+          renderLeaderboard(all);
+        }, function(err) { console.warn('리더보드 구독 오류:', err); });
+    }
+
+    function renderLeaderboard(participants) {
+      var list = document.getElementById('leaderboard-list');
+      if (!list) return;
+
+      // 정렬: 완료 CP 많은 순 → 같으면 완주자 우선 → 경과 시간 짧은 순
+      participants.sort(function(a, b) {
+        var ca = (a.completedCPs || []).length;
+        var cb = (b.completedCPs || []).length;
+        if (cb !== ca) return cb - ca;
+        if (a.status === 'finished' && b.status !== 'finished') return -1;
+        if (b.status === 'finished' && a.status !== 'finished') return 1;
+        var ta = (a.startedAt && a.finishedAt)
+          ? ((a.finishedAt.toMillis ? a.finishedAt.toMillis() : 0) - (a.startedAt.toMillis ? a.startedAt.toMillis() : 0))
+          : Infinity;
+        var tb = (b.startedAt && b.finishedAt)
+          ? ((b.finishedAt.toMillis ? b.finishedAt.toMillis() : 0) - (b.startedAt.toMillis ? b.startedAt.toMillis() : 0))
+          : Infinity;
+        return ta - tb;
+      });
+
+      list.innerHTML = '';
+      if (participants.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:12px;padding:12px">아직 참가자가 없습니다</div>';
+        return;
+      }
+
+      var medalColors = ['#f0b429','#adb5bd','#cd7f32'];
+      participants.slice(0, 15).forEach(function(p, rank) {
+        var isMe = p._id === userId;
+        var cpCount = (p.completedCPs || []).length;
+        var statusColor = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
+        var elapsed = '';
+        if (p.finishedAt && p.startedAt) {
+          var sd = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
+          var fd = p.finishedAt.toDate ? p.finishedAt.toDate() : new Date(p.finishedAt);
+          var mins = Math.floor((fd - sd) / 60000);
+          elapsed = mins >= 60 ? Math.floor(mins/60) + 'h ' + (mins%60) + 'm' : mins + '분';
+        } else if (p.status === 'in-progress') {
+          elapsed = '진행중';
+        } else {
+          elapsed = '대기';
+        }
+
+        var medalBg  = rank < 3 ? medalColors[rank] : '#f0efe8';
+        var medalTxt = rank < 3 ? 'white' : '#888';
+        var item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin-bottom:6px;' +
+          (isMe ? 'background:#E1F5EE;border:1.5px solid #b2e8d4;' : 'background:white;border:1px solid #f0efe8;');
+        item.innerHTML =
+          '<div style="width:24px;height:24px;border-radius:50%;background:' + medalBg + ';color:' + medalTxt + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">' + (rank + 1) + '</div>' +
+          '<div style="flex:1;font-size:13px;font-weight:' + (isMe ? '700' : '500') + ';color:#1a1a18">' + (p.name || '-') + (isMe ? ' <span style="font-size:10px;color:#1D9E75;font-weight:400">(나)</span>' : '') + '</div>' +
+          '<div style="font-size:12px;color:#aaa;margin-right:6px">' + cpCount + '<span style="font-size:10px">/' + totalNormalCPs + '</span></div>' +
+          '<div style="font-size:11px;color:' + statusColor + ';font-weight:500;min-width:36px;text-align:right">' + elapsed + '</div>';
+        list.appendChild(item);
+      });
     }
 
     // ── 타이머 ────────────────────────────────────────────

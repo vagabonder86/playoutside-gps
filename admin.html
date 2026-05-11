@@ -8,6 +8,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,6 +40,8 @@
 
     .prog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
     .prog-card { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; overflow: hidden; }
+    .prog-card.ended { opacity: 0.6; }
+    .admin-toast { position: fixed; top: 72px; right: 20px; z-index: 9999; background: #085041; color: white; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,0.25); display: none; max-width: 320px; line-height: 1.5; }
     .prog-card-header { padding: 16px 18px; border-bottom: 0.5px solid #f0efe8; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .prog-card-title { font-size: 14px; font-weight: 500; }
     .prog-card-meta { font-size: 12px; color: #888; margin-top: 4px; }
@@ -312,8 +315,14 @@
             <textarea id="prog-desc" placeholder="프로그램 설명을 입력하세요"></textarea>
           </div>
           <div class="form-group">
-            <label>홍보 이미지 URL <span style="font-weight:400;color:#aaa">(선택)</span></label>
-            <input type="url" id="prog-image-url" placeholder="https://..." oninput="previewProgImage(this.value)">
+            <label>홍보 이미지 <span style="font-weight:400;color:#aaa">(선택 · URL 입력 또는 파일 업로드)</span></label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="url" id="prog-image-url" placeholder="https://..." oninput="previewProgImage(this.value)" style="flex:1">
+              <label class="btn btn-sm" style="flex-shrink:0;cursor:pointer;margin-bottom:0" title="이미지 파일 업로드">
+                <i class="ti ti-upload"></i> 업로드
+                <input type="file" id="prog-image-file" accept="image/*" style="display:none" onchange="uploadProgImage(this)">
+              </label>
+            </div>
             <div id="prog-image-preview" style="display:none;margin-top:8px;border-radius:10px;overflow:hidden;max-height:160px;background:#f0f0ec">
               <img id="prog-image-preview-img" src="" alt="미리보기" style="width:100%;height:160px;object-fit:cover;display:block">
             </div>
@@ -509,6 +518,8 @@
               <textarea id="cp-mission-input" placeholder="참가자에게 보여줄 미션 내용"></textarea>
               <label>정답</label>
               <input type="text" id="cp-answer-input" placeholder="정답 키워드">
+              <label>힌트 이미지 URL <span style="font-weight:400;color:#aaa">(선택)</span></label>
+              <input type="text" id="cp-hint-image-input" placeholder="https://...">
               <label>좌표 <span style="font-weight:400;color:#aaa">(직접 입력 또는 지도 클릭)</span></label>
               <div class="coord-row">
                 <input type="text" id="cp-lat-input" placeholder="위도 예) 37.5954">
@@ -663,6 +674,23 @@
   </div>
 </div>
 
+<!-- QR 코드 모달 -->
+<div class="modal-bg" id="qr-modal" style="display:none">
+  <div class="modal" style="text-align:center">
+    <h3 id="qr-modal-name">QR 코드</h3>
+    <p>참가자에게 공유하면 프로그램이 자동으로 선택됩니다</p>
+    <img id="qr-image" src="" style="width:220px;height:220px;border-radius:10px;margin:4px 0;border:0.5px solid #e0e0d8;display:block;margin:8px auto">
+    <div style="font-size:11px;color:#aaa;margin-bottom:16px;word-break:break-all" id="qr-url-text"></div>
+    <div class="modal-btns">
+      <button class="btn" id="close-qr-btn">닫기</button>
+      <a class="btn btn-primary" id="download-qr-btn" download="qr.png" target="_blank">다운로드</a>
+    </div>
+  </div>
+</div>
+
+<!-- 어드민 토스트 -->
+<div class="admin-toast" id="admin-toast"></div>
+
 <!-- 삭제 확인 모달 -->
 <div class="modal-bg" id="delete-modal" style="display:none">
   <div class="modal">
@@ -689,6 +717,7 @@
   firebase.initializeApp(firebaseConfig);
   var db = firebase.firestore();
   var auth = firebase.auth();
+  var storage = firebase.storage();
 
   // ── 로그인 / 인증 ──────────────────────────────────────
   var loginScreen = document.getElementById('login-screen');
@@ -1067,13 +1096,16 @@
       var badge = modeBadge[prog.mode] || 'badge-gray';
       var dateStr = prog.date ? new Date(prog.date).toLocaleDateString('ko-KR') : '날짜 미정';
       var isPublished = prog.published === true;
+      var isEnded = prog.ended === true;
       var card = document.createElement('div');
-      card.className = 'prog-card';
+      card.className = 'prog-card' + (isEnded ? ' ended' : '');
       if (isPublished) card.style.outline = '2px solid #1D9E75';
+      if (isEnded) card.style.outline = '2px solid #e0e0d8';
       card.innerHTML =
         '<div class="prog-card-header">' +
           '<div style="flex:1;min-width:0"><div class="prog-card-title">' + prog.name +
             (isPublished ? ' <span style="font-size:10px;background:#1D9E75;color:white;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">● 공개 중</span>' : '') +
+            (isEnded ? ' <span style="font-size:10px;background:#888;color:white;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">종료됨</span>' : '') +
           '</div>' +
           '<div class="prog-card-meta">' + (prog.location||'장소 미정') + ' · ' + dateStr + (prog.manager ? ' · ' + prog.manager : '') + '</div></div>' +
           '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
@@ -1088,21 +1120,26 @@
         '</div>' +
         '<div class="prog-card-footer" style="flex-direction:column;gap:8px">' +
           '<div style="display:flex;gap:6px;align-items:center">' +
-            '<button class="btn btn-sm publish-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;' +
-              (isPublished
-                ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;'
-                : 'background:white;color:#888;border-color:#ddd;') + '">' +
-              (isPublished
-                ? '<i class="ti ti-eye"></i> 공개 중 (탭하여 비공개)'
-                : '<i class="ti ti-eye-off"></i> 비공개 (탭하여 공개)') + '</button>' +
-            '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-map-pin"></i> CP 편집</button>' +
+            (!isEnded
+              ? '<button class="btn btn-sm publish-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;' +
+                (isPublished ? 'background:#E1F5EE;color:#0F6E56;border-color:#b2e8d4;' : 'background:white;color:#888;border-color:#ddd;') + '">' +
+                (isPublished ? '<i class="ti ti-eye"></i> 공개 중 (탭하여 비공개)' : '<i class="ti ti-eye-off"></i> 비공개 (탭하여 공개)') + '</button>'
+              : '<span class="btn btn-sm" style="flex:1;justify-content:center;background:#f5f5f0;color:#aaa;border-color:#e0e0d8;cursor:default">종료된 프로그램</span>') +
+            '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-map-pin"></i> CP</button>' +
+            '<button class="btn btn-sm qr-btn" data-id="' + prog.id + '" style="justify-content:center" title="QR 코드"><i class="ti ti-qrcode"></i></button>' +
             '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '" style="flex-shrink:0"><i class="ti ti-trash"></i></button>' +
           '</div>' +
-          '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="width:100%;justify-content:center;color:#534AB7;border-color:#EEEDFE;background:#EEEDFE">' +
-            '<i class="ti ti-users"></i> 참가자 현황</button>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button class="btn btn-sm part-view-btn" data-id="' + prog.id + '" style="flex:1;justify-content:center;color:#534AB7;border-color:#EEEDFE;background:#EEEDFE">' +
+              '<i class="ti ti-users"></i> 참가자 현황</button>' +
+            (isEnded
+              ? '<button class="btn btn-sm reopen-btn" data-id="' + prog.id + '" style="flex-shrink:0;justify-content:center;color:#1D9E75;border-color:#b2e8d4"><i class="ti ti-refresh"></i> 다시 열기</button>'
+              : '<button class="btn btn-sm end-prog-btn" data-id="' + prog.id + '" style="flex-shrink:0;justify-content:center;color:#A32D2D;border-color:#f5c4c4"><i class="ti ti-player-stop"></i> 종료</button>') +
+          '</div>' +
         '</div>';
       grid.appendChild(card);
     });
+
     document.querySelectorAll('.publish-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
         var id = btn.dataset.id;
@@ -1113,15 +1150,39 @@
           alert('CP가 없습니다. 먼저 CP를 편집하고 저장해주세요.');
           return;
         }
-        db.collection('programs').doc(id).update({ published: nowPublished }).then(function() {
-          // onSnapshot으로 자동 갱신되지만 즉시 반영을 위해 호출
-          renderPrograms();
-        }).catch(function(err) {
-          console.error('공개 상태 변경 오류:', err);
-          alert('변경 중 오류가 발생했습니다: ' + err.message);
+        db.collection('programs').doc(id).update({ published: nowPublished }).catch(function(err) {
+          alert('변경 중 오류: ' + err.message);
         });
       });
     });
+
+    document.querySelectorAll('.end-prog-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.dataset.id;
+        var prog = programs.find(function(p) { return p.id === id; });
+        if (!prog) return;
+        if (!confirm('"' + prog.name + '" 프로그램을 종료하시겠어요?\n공개가 중단되고 참가자 화면에서 사라집니다.')) return;
+        db.collection('programs').doc(id).update({
+          ended: true,
+          published: false,
+          endedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(function(err) { alert('종료 처리 오류: ' + err.message); });
+      });
+    });
+
+    document.querySelectorAll('.reopen-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.dataset.id;
+        db.collection('programs').doc(id).update({ ended: false }).catch(function(err) {
+          alert('다시 열기 오류: ' + err.message);
+        });
+      });
+    });
+
+    document.querySelectorAll('.qr-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { showQRModal(btn.dataset.id); });
+    });
+
     document.querySelectorAll('.part-view-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { showScreen('participants', btn.dataset.id); });
     });
@@ -1132,7 +1193,6 @@
       btn.addEventListener('click', function() {
         var prog = programs.find(function(p) { return p.id === btn.dataset.id; });
         if (!prog) return;
-        // showScreen 먼저 (내부에서 resetForm 호출) → 그 다음 editingProgId·fillForm 설정
         showScreen('new-program');
         editingProgId = prog.id;
         fillForm(prog);
@@ -1416,6 +1476,7 @@
     document.getElementById('cp-type-input').value = cp.type || 'normal';
     // 이름 필드: start/end는 고정값 표시 + 비활성화
     document.getElementById('cp-name-input').value = cp.name;
+    document.getElementById('cp-hint-image-input').value = cp.hintImage || '';
     updateNameInputForType(cp.type || 'normal');
     renderCPListAdmin();
     adminMap.setCenter(new naver.maps.LatLng(cp.lat, cp.lng));
@@ -1423,11 +1484,12 @@
 
   function saveCP() {
     if (selectedCPIndex === null) return;
-    cpData[selectedCPIndex].type    = document.getElementById('cp-type-input').value;
-    cpData[selectedCPIndex].mission = document.getElementById('cp-mission-input').value.trim();
-    cpData[selectedCPIndex].answer  = document.getElementById('cp-answer-input').value.trim();
-    cpData[selectedCPIndex].lat     = parseFloat(document.getElementById('cp-lat-input').value);
-    cpData[selectedCPIndex].lng     = parseFloat(document.getElementById('cp-lng-input').value);
+    cpData[selectedCPIndex].type      = document.getElementById('cp-type-input').value;
+    cpData[selectedCPIndex].mission   = document.getElementById('cp-mission-input').value.trim();
+    cpData[selectedCPIndex].answer    = document.getElementById('cp-answer-input').value.trim();
+    cpData[selectedCPIndex].hintImage = document.getElementById('cp-hint-image-input').value.trim();
+    cpData[selectedCPIndex].lat       = parseFloat(document.getElementById('cp-lat-input').value);
+    cpData[selectedCPIndex].lng       = parseFloat(document.getElementById('cp-lng-input').value);
 
     // 타입에 따라 id·name 자동 고정
     if (cpData[selectedCPIndex].type === 'start') {
@@ -1602,14 +1664,27 @@
   }
 
   // ── 참가자 현황 실시간 구독 (Firestore onSnapshot) ───
+  var notifiedFinished = new Set();
+
   function subscribeParticipants(progId) {
     if (participantsUnsubscribe) { participantsUnsubscribe(); }
     liveParticipants = [];
+    notifiedFinished.clear();
     participantsUnsubscribe = db.collection('participants').doc(progId).collection('users')
       .onSnapshot(function(snapshot) {
         liveParticipants = [];
         snapshot.forEach(function(doc) {
           liveParticipants.push(Object.assign({ userId: doc.id }, doc.data()));
+        });
+        // 완주 알림 감지
+        snapshot.docChanges().forEach(function(change) {
+          if (change.type === 'added' || change.type === 'modified') {
+            var data = change.doc.data();
+            if (data.status === 'finished' && !notifiedFinished.has(change.doc.id)) {
+              notifiedFinished.add(change.doc.id);
+              showAdminNotification('🏆 ' + (data.name || '참가자') + '님이 완주했습니다!');
+            }
+          }
         });
         renderParticipants();
         renderMonitorParticipants();
@@ -1745,47 +1820,84 @@
 
   // ── 통계 ──────────────────────────────────────────────────
   function renderStats() {
-    var totalProg = programs.length;
-    var totalParticipants = 0;
-
-    programs.forEach(function(prog) {
-      var participants = prog.participants ? parseInt(prog.participants) : 0;
-      totalParticipants += participants;
-    });
-
-    var avgParticipants = totalProg > 0 ? Math.round(totalParticipants / totalProg) : 0;
-
-    document.getElementById('stat-total-prog').textContent = totalProg;
-    document.getElementById('stat-avg-participants').textContent = avgParticipants;
-    document.getElementById('stat-total-finished').textContent = '-';
-    document.getElementById('stat-avg-time').textContent = '-';
+    document.getElementById('stat-total-prog').textContent = programs.length;
+    document.getElementById('stat-avg-participants').textContent = '…';
+    document.getElementById('stat-total-finished').textContent = '…';
+    document.getElementById('stat-avg-time').textContent = '…';
 
     var tbody = document.getElementById('stats-body');
-    tbody.innerHTML = '';
-
-    programs.forEach(function(prog) {
-      var participants = parseInt(prog.participants) || 0;
-      var modeText = modeNames[prog.mode] || prog.mode;
-      var tr = document.createElement('tr');
-      tr.style.borderBottom = '0.5px solid #f0efe8';
-      tr.style.fontSize = '13px';
-      tr.innerHTML =
-        '<td style="padding:12px 18px;font-weight:500">' + prog.name + '</td>' +
-        '<td style="padding:12px 18px;text-align:center"><span style="background:#E1F5EE;color:#0F6E56;padding:2px 8px;border-radius:12px;font-size:11px">' + modeText + '</span></td>' +
-        '<td style="padding:12px 18px;text-align:center">' + participants + '</td>' +
-        '<td style="padding:12px 18px;text-align:center;font-weight:500;color:#534AB7">-</td>' +
-        '<td style="padding:12px 18px;text-align:center;color:#1D9E75">-</td>' +
-        '<td style="padding:12px 18px;text-align:center;color:#aaa">-</td>' +
-        '<td style="padding:12px 18px;text-align:center;font-weight:500">-</td>' +
-        '<td style="padding:12px 18px;text-align:center">-</td>';
-      tbody.appendChild(tr);
-    });
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:#aaa;font-size:13px">통계 불러오는 중...</td></tr>';
 
     if (programs.length === 0) {
-      var tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="8" style="padding:24px;text-align:center;color:#888">프로그램이 없습니다</td>';
-      tbody.appendChild(tr);
+      tbody.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:#888">프로그램이 없습니다</td></tr>';
+      ['stat-avg-participants','stat-total-finished','stat-avg-time'].forEach(function(id) {
+        document.getElementById(id).textContent = '-';
+      });
+      return;
     }
+
+    var fetches = programs.map(function(prog) {
+      return db.collection('participants').doc(prog.id).collection('users').get()
+        .then(function(snap) {
+          var users = [];
+          snap.forEach(function(d) { users.push(d.data()); });
+          return { prog: prog, users: users };
+        })
+        .catch(function() { return { prog: prog, users: [] }; });
+    });
+
+    Promise.all(fetches).then(function(results) {
+      var totalFinished = 0;
+      var allTimes = [];
+      var totalRealParticipants = 0;
+
+      tbody.innerHTML = '';
+      results.forEach(function(r) {
+        var prog = r.prog;
+        var users = r.users;
+        totalRealParticipants += users.length;
+        var finished   = users.filter(function(u) { return u.status === 'finished'; });
+        var inProgress = users.filter(function(u) { return u.status === 'in-progress'; }).length;
+        var notStarted = users.length - finished.length - inProgress;
+        totalFinished += finished.length;
+
+        var progTimes = finished.filter(function(u) { return u.startedAt && u.finishedAt; }).map(function(u) {
+          var sd = u.startedAt.toDate ? u.startedAt.toDate() : new Date(u.startedAt);
+          var fd = u.finishedAt.toDate ? u.finishedAt.toDate() : new Date(u.finishedAt);
+          return (fd - sd) / 60000;
+        });
+        progTimes.forEach(function(t) { allTimes.push(t); });
+
+        var rate   = users.length > 0 ? Math.round(finished.length / users.length * 100) : '-';
+        var avgMin = progTimes.length > 0 ? Math.round(progTimes.reduce(function(a,b){return a+b;},0) / progTimes.length) : null;
+        var avgStr = avgMin !== null ? (avgMin >= 60 ? Math.floor(avgMin/60) + 'h ' + (avgMin%60) + 'm' : avgMin + '분') : '-';
+        var modeText = modeNames[prog.mode] || prog.mode;
+
+        var tr = document.createElement('tr');
+        tr.style.cssText = 'border-bottom:0.5px solid #f0efe8;font-size:13px';
+        tr.innerHTML =
+          '<td style="padding:12px 18px;font-weight:500">' + prog.name + (prog.ended ? ' <span style="font-size:10px;color:#aaa">(종료)</span>' : '') + '</td>' +
+          '<td style="padding:12px 18px;text-align:center"><span style="background:#E1F5EE;color:#0F6E56;padding:2px 8px;border-radius:12px;font-size:11px">' + modeText + '</span></td>' +
+          '<td style="padding:12px 18px;text-align:center">' + users.length + '</td>' +
+          '<td style="padding:12px 18px;text-align:center;font-weight:500;color:#534AB7">' + finished.length + '</td>' +
+          '<td style="padding:12px 18px;text-align:center;color:#1D9E75">' + inProgress + '</td>' +
+          '<td style="padding:12px 18px;text-align:center;color:#aaa">' + notStarted + '</td>' +
+          '<td style="padding:12px 18px;text-align:center;font-weight:500">' + (typeof rate === 'number' ? rate + '%' : '-') + '</td>' +
+          '<td style="padding:12px 18px;text-align:center">' + avgStr + '</td>';
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('stat-total-finished').textContent = totalFinished;
+      document.getElementById('stat-avg-participants').textContent =
+        results.length > 0 ? Math.round(totalRealParticipants / results.length) : 0;
+      if (allTimes.length > 0) {
+        var avgAll = Math.round(allTimes.reduce(function(a,b){return a+b;},0) / allTimes.length);
+        document.getElementById('stat-avg-time').textContent =
+          avgAll >= 60 ? Math.floor(avgAll/60) + 'h ' + (avgAll%60) + 'm' : avgAll + '분';
+      } else {
+        document.getElementById('stat-avg-time').textContent = '-';
+      }
+    });
   }
 
   // ── Firestore 실시간 프로그램 목록 구독 ───────────────
@@ -1814,6 +1926,72 @@
       console.error('프로그램 목록 구독 오류:', err);
       alert('프로그램 목록을 불러오지 못했습니다: ' + err.message);
     });
+  }
+
+  // ── QR 코드 모달 ──────────────────────────────────────
+  function showQRModal(progId) {
+    var prog = programs.find(function(p) { return p.id === progId; });
+    if (!prog) return;
+    var url = 'https://play.playoutside.co.kr?prog=' + progId;
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
+    document.getElementById('qr-modal-name').textContent = prog.name;
+    document.getElementById('qr-image').src = qrUrl;
+    document.getElementById('qr-url-text').textContent = url;
+    document.getElementById('download-qr-btn').href = qrUrl;
+    document.getElementById('qr-modal').style.display = 'flex';
+  }
+  document.getElementById('close-qr-btn').addEventListener('click', function() {
+    document.getElementById('qr-modal').style.display = 'none';
+  });
+  document.getElementById('qr-modal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+
+  // ── 홍보 이미지 업로드 (Firebase Storage) ─────────────
+  function uploadProgImage(input) {
+    var file = input.files[0];
+    if (!file) return;
+    var user = auth.currentUser;
+    if (!user) { alert('로그인이 필요합니다.'); return; }
+    var ext = file.name.split('.').pop();
+    var path = 'program-images/' + Date.now() + '_' + Math.random().toString(36).slice(2) + '.' + ext;
+    var urlInput = document.getElementById('prog-image-url');
+    urlInput.value = '업로드 중...';
+    urlInput.disabled = true;
+    storage.ref(path).put(file).then(function(snap) {
+      return snap.ref.getDownloadURL();
+    }).then(function(url) {
+      urlInput.value = url;
+      urlInput.disabled = false;
+      previewProgImage(url);
+      input.value = '';
+    }).catch(function(err) {
+      urlInput.value = '';
+      urlInput.disabled = false;
+      alert('업로드 실패: ' + err.message);
+    });
+  }
+
+  // ── 관리자 토스트 알림 ─────────────────────────────────
+  function showAdminToast(msg) {
+    var toast = document.getElementById('admin-toast');
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function() { toast.style.display = 'none'; }, 4000);
+  }
+
+  // ── 브라우저 알림 + 토스트 ────────────────────────────
+  function showAdminNotification(msg) {
+    showAdminToast(msg);
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification('플레이아웃사이드', { body: msg, icon: 'logo.png' });
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(function(perm) {
+        if (perm === 'granted') new Notification('플레이아웃사이드', { body: msg, icon: 'logo.png' });
+      });
+    }
   }
 
   // 화면 전환 시 모바일 탭 활성 상태 동기화

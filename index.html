@@ -14,6 +14,7 @@
   <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: #f5f5f0; color: #2c2c2a; }
@@ -291,6 +292,13 @@
         <button id="show-hint-btn" style="width:100%;padding:9px;background:#FAEEDA;color:#633806;border:0.5px solid #f0d8b0;border-radius:8px;font-size:13px;cursor:pointer">💡 힌트 이미지 보기</button>
         <img id="mission-hint-image" src="" alt="힌트" style="display:none;width:100%;border-radius:10px;margin-top:8px;max-height:200px;object-fit:cover">
       </div>
+      <div id="mission-photo-wrap" style="display:none;margin-bottom:14px">
+        <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:0.5px dashed #ddd;border-radius:8px;cursor:pointer;font-size:13px;color:#888;background:#fafafa">
+          📷 사진으로 인증 (선택)
+          <input type="file" id="mission-photo-input" accept="image/*" capture="environment" style="display:none">
+        </label>
+        <img id="mission-photo-preview" src="" alt="미리보기" style="display:none;width:100%;border-radius:8px;margin-top:8px;max-height:180px;object-fit:cover">
+      </div>
       <div id="mission-input-wrap">
         <label>정답 입력</label>
         <input id="mission-input" type="text" placeholder="답을 입력하세요">
@@ -310,6 +318,16 @@
       <div class="success-title" id="success-title">완료!</div>
       <div class="success-sub" id="success-sub"></div>
       <button class="btn-green" id="close-success-btn">계속하기</button>
+    </div>
+  </div>
+
+  <!-- 시간 초과 오버레이 -->
+  <div id="timeup-overlay" class="overlay" style="display:none">
+    <div class="overlay-box" style="text-align:center">
+      <div style="font-size:52px;margin-bottom:12px">⏰</div>
+      <div class="success-title" style="color:#E24B4A">시간 초과!</div>
+      <div class="success-sub" id="timeup-sub">제한 시간이 종료됐습니다.</div>
+      <button class="btn-green" id="close-timeup-btn" style="margin-top:8px">결과 확인</button>
     </div>
   </div>
 
@@ -414,6 +432,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     var db = firebase.firestore();
+    var storage = firebase.storage();
 
     // ── 기본 CP (Firestore 읽기 실패 시 폴백) ─────────────
     var DEFAULT_CHECKPOINTS = [
@@ -453,6 +472,8 @@
     var userPhone = '';
     var userId = '';
     var lastLocationUpdate = 0;      // GPS 위치 업데이트 throttle용
+    var currentProgTime = 0;         // 제한 시간 (분, 0 = 무제한)
+    var lastLeaderboard = [];        // 완주 결과 화면용 리더보드 캐시
 
     // 하이킹 전용 상태
     var hikeTotalDist = 0;           // 누적 이동 거리 (m)
@@ -538,6 +559,8 @@
       currentProgMode     = prog.mode || null;
       currentModeSettings = prog.modeSettings || {};
       gpxRoute            = (prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
+      currentProgTime     = (prog.noTimeLimit || (prog.modeSettings && prog.modeSettings.noTimeLimit))
+                            ? 0 : (parseInt(prog.time) || 0);
 
       if (prog.cps && prog.cps.length > 0) {
         checkpoints = prog.cps.map(function(cp) {
@@ -592,6 +615,12 @@
       document.getElementById('success-overlay').style.display = 'none';
     });
     document.getElementById('locate-btn').addEventListener('click', locateMe);
+    document.getElementById('close-timeup-btn').addEventListener('click', function() {
+      document.getElementById('timeup-overlay').style.display = 'none';
+    });
+    document.getElementById('mission-photo-input').addEventListener('change', function() {
+      previewMissionPhoto(this);
+    });
     document.getElementById('show-hint-btn').addEventListener('click', function() {
       var img = document.getElementById('mission-hint-image');
       if (img.style.display === 'none') {
@@ -1031,6 +1060,17 @@
         showGpsAlert('📍 ' + cp.name + ' 에 직접 방문해야 미션을 시작할 수 있습니다');
         return;
       }
+      // 오리엔티어링: 순차 진행 체크
+      if (currentProgMode === 'orienteering') {
+        var nextOri = -1;
+        for (var oi = 0; oi < checkpoints.length; oi++) {
+          if (checkpoints[oi].type === 'normal' && !completedCPs.has(oi)) { nextOri = oi; break; }
+        }
+        if (nextOri !== -1 && nextOri !== i) {
+          showGpsAlert('순서대로! 다음 CP: ' + checkpoints[nextOri].name);
+          return;
+        }
+      }
       activeCPIndex = i;
       document.getElementById('mission-title').textContent = cp.name + ' 미션';
       document.getElementById('mission-desc').textContent  = cp.mission || '이 지점을 방문했습니다.';
@@ -1053,6 +1093,13 @@
       document.getElementById('mission-input-wrap').style.display = hasAnswer ? 'block' : 'none';
       document.getElementById('check-answer-btn').textContent = hasAnswer ? '확인' : '✅ 방문 완료';
       document.getElementById('mission-input').value = '';
+
+      // 사진 인증 섹션 초기화
+      document.getElementById('mission-photo-wrap').style.display = 'block';
+      document.getElementById('mission-photo-input').value = '';
+      document.getElementById('mission-photo-preview').style.display = 'none';
+      document.getElementById('mission-photo-preview').src = '';
+
       document.getElementById('mission-overlay').style.display = 'flex';
     }
 
@@ -1076,6 +1123,20 @@
         document.getElementById('success-overlay').style.display = 'flex';
         updateMarkers();
         renderCPList();
+
+        // 사진 백그라운드 업로드
+        var photoFile = document.getElementById('mission-photo-input').files[0];
+        if (photoFile && storage && userId && currentProgId) {
+          var ref = storage.ref('cp-photos/' + currentProgId + '/' + userId + '_cp' + activeCPIndex + '_' + Date.now());
+          ref.put(photoFile).then(function(snap) {
+            return snap.ref.getDownloadURL();
+          }).then(function(url) {
+            var update = {};
+            update['cpPhotos.' + activeCPIndex] = url;
+            db.collection('participants').doc(currentProgId)
+              .collection('users').doc(userId).update(update).catch(function(){});
+          }).catch(function(e) { console.warn('사진 업로드 실패:', e); });
+        }
       } else {
         document.getElementById('mission-error').style.display = 'block';
         document.getElementById('mission-input').value = '';
@@ -1083,12 +1144,44 @@
       }
     }
 
+    function previewMissionPhoto(input) {
+      var file = input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var preview = document.getElementById('mission-photo-preview');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function showTimeUp() {
+      var completedNormal = checkpoints.filter(function(c, idx) {
+        return c.type === 'normal' && completedCPs.has(idx);
+      }).length;
+      document.getElementById('timeup-sub').textContent =
+        '제한 시간이 종료됐습니다.\n완료 CP: ' + completedNormal + '/' + totalNormalCPs + '개';
+      document.getElementById('timeup-overlay').style.display = 'flex';
+    }
+
     // ── 도착 완료 화면 ────────────────────────────────────
     function showSuccessEnd() {
       var elapsed = document.getElementById('elapsed-time').textContent;
+      var completedNormal = checkpoints.filter(function(c, idx) {
+        return c.type === 'normal' && completedCPs.has(idx);
+      }).length;
+
+      var rankText = '';
+      if (lastLeaderboard.length > 0) {
+        var myRank = lastLeaderboard.findIndex(function(p) { return p._id === userId; });
+        if (myRank !== -1) rankText = '\n순위: ' + (myRank + 1) + '위 / ' + lastLeaderboard.length + '명';
+      }
+
       document.getElementById('success-icon').textContent  = '🏆';
-      document.getElementById('success-title').textContent = '도착 완료!';
-      document.getElementById('success-sub').textContent   = '수고하셨어요!\n최종 기록: ' + elapsed;
+      document.getElementById('success-title').textContent = '완주!';
+      document.getElementById('success-sub').textContent   =
+        '수고하셨어요!\nCP: ' + completedNormal + '/' + totalNormalCPs + '개\n기록: ' + elapsed + rankText;
       document.getElementById('success-overlay').style.display = 'flex';
     }
 
@@ -1121,11 +1214,22 @@
           badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : 'background:#FAECE7;color:#712B13';
         } else {
           var gpsOk = gpsVerifiedCPs.has(i);
-          statusClass = done ? 'status-done' : gpsOk ? 'status-open' : 'status-lock';
-          statusText  = done ? '완료' : gpsOk ? '미션 대기' : 'GPS 미인증';
-          desc        = done ? '미션 완료' : gpsOk ? '탭해서 미션 확인' : '해당 지점 30m 반경에 가까이 가세요';
+
+          // 오리엔티어링: 현재 순서가 아닌 CP는 잠금
+          var oriLocked = false;
+          if (currentProgMode === 'orienteering' && !done) {
+            var nextOri = -1;
+            for (var oi2 = 0; oi2 < checkpoints.length; oi2++) {
+              if (checkpoints[oi2].type === 'normal' && !completedCPs.has(oi2)) { nextOri = oi2; break; }
+            }
+            if (nextOri !== -1 && nextOri !== i) oriLocked = true;
+          }
+
+          statusClass = done ? 'status-done' : (oriLocked ? 'status-lock' : (gpsOk ? 'status-open' : 'status-lock'));
+          statusText  = done ? '완료' : (oriLocked ? '순서 대기' : (gpsOk ? '미션 대기' : 'GPS 미인증'));
+          desc        = done ? '미션 완료' : (oriLocked ? '이전 CP를 먼저 완료하세요' : (gpsOk ? '탭해서 미션 확인' : '해당 지점 30m 반경에 가까이 가세요'));
           badgeLabel  = done ? '✓' : cp.id;
-          badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : gpsOk ? '' : 'background:#f0efe8;color:#aaa';
+          badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : (oriLocked ? 'background:#f0efe8;color:#aaa' : (gpsOk ? '' : 'background:#f0efe8;color:#aaa'));
         }
 
         var item = document.createElement('div');
@@ -1349,6 +1453,8 @@
         return ta - tb;
       });
 
+      lastLeaderboard = participants;
+
       list.innerHTML = '';
       if (participants.length === 0) {
         list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:12px;padding:12px">아직 참가자가 없습니다</div>';
@@ -1398,6 +1504,13 @@
         document.getElementById('elapsed-time').textContent = timeStr;
         var re = document.getElementById('rec-elapsed');
         if (re) re.textContent = timeStr;
+        // 제한 시간 초과 체크
+        if (currentProgTime > 0 && diff >= currentProgTime * 60 && !ended) {
+          ended = true;
+          clearInterval(timerInterval);
+          recordFinish();
+          showTimeUp();
+        }
       }, 1000);
     }
 

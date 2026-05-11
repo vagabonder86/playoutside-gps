@@ -564,6 +564,7 @@
           <div style="display:flex;gap:8px">
             <input type="text" placeholder="이름 검색..." id="search-input" style="padding:7px 12px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;width:150px" oninput="filterParticipants()">
             <button class="btn btn-sm btn-primary" onclick="exportCSV()"><i class="ti ti-download"></i> CSV</button>
+            <button class="btn btn-sm btn-danger" onclick="clearParticipantsData()" title="참가자 데이터 전체 삭제"><i class="ti ti-trash"></i> 초기화</button>
           </div>
         </div>
 
@@ -1127,6 +1128,7 @@
               : '<span class="btn btn-sm" style="flex:1;justify-content:center;background:#f5f5f0;color:#aaa;border-color:#e0e0d8;cursor:default">종료된 프로그램</span>') +
             '<button class="btn btn-sm cp-edit-btn" data-id="' + prog.id + '" style="justify-content:center"><i class="ti ti-map-pin"></i> CP</button>' +
             '<button class="btn btn-sm qr-btn" data-id="' + prog.id + '" style="justify-content:center" title="QR 코드"><i class="ti ti-qrcode"></i></button>' +
+            '<button class="btn btn-sm copy-prog-btn" data-id="' + prog.id + '" style="justify-content:center" title="프로그램 복사"><i class="ti ti-copy"></i></button>' +
             '<button class="btn btn-sm btn-danger prog-del-btn" data-id="' + prog.id + '" style="flex-shrink:0"><i class="ti ti-trash"></i></button>' +
           '</div>' +
           '<div style="display:flex;gap:6px">' +
@@ -1181,6 +1183,9 @@
 
     document.querySelectorAll('.qr-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { showQRModal(btn.dataset.id); });
+    });
+    document.querySelectorAll('.copy-prog-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { copyProgram(btn.dataset.id); });
     });
 
     document.querySelectorAll('.part-view-btn').forEach(function(btn) {
@@ -1992,6 +1997,40 @@
         if (perm === 'granted') new Notification('플레이아웃사이드', { body: msg, icon: 'logo.png' });
       });
     }
+  }
+
+  // ── 참가자 데이터 초기화 ──────────────────────────────
+  function clearParticipantsData() {
+    if (!currentProgId) return;
+    var prog = programs.find(function(p) { return p.id === currentProgId; });
+    if (!confirm('"' + (prog ? prog.name : '') + '"\n모든 참가자 데이터를 삭제하시겠어요?\n이 작업은 되돌릴 수 없습니다.')) return;
+    db.collection('participants').doc(currentProgId).collection('users').get()
+      .then(function(snap) {
+        if (snap.empty) { showAdminToast('삭제할 데이터가 없습니다.'); return Promise.resolve(); }
+        var batch = db.batch();
+        snap.forEach(function(doc) { batch.delete(doc.ref); });
+        return batch.commit();
+      })
+      .then(function() { showAdminToast('✅ 참가자 데이터가 초기화됐습니다.'); })
+      .catch(function(err) { alert('초기화 오류: ' + err.message); });
+  }
+
+  // ── 프로그램 복사 ──────────────────────────────────────
+  function copyProgram(progId) {
+    var prog = programs.find(function(p) { return p.id === progId; });
+    if (!prog) return;
+    var copy = {};
+    Object.keys(prog).forEach(function(k) {
+      if (k !== 'id') copy[k] = prog[k];
+    });
+    copy.name       = prog.name + ' (복사)';
+    copy.published  = false;
+    copy.ended      = false;
+    copy.createdAt  = firebase.firestore.FieldValue.serverTimestamp();
+    delete copy.endedAt;
+    db.collection('programs').add(copy)
+      .then(function() { showAdminToast('📋 "' + prog.name + '" 이 복사됐습니다.'); })
+      .catch(function(err) { alert('복사 오류: ' + err.message); });
   }
 
   // 화면 전환 시 모바일 탭 활성 상태 동기화

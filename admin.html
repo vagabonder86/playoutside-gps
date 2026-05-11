@@ -37,6 +37,7 @@
     .badge-green { background: #E1F5EE; color: #0F6E56; }
     .badge-purple { background: #EEEDFE; color: #534AB7; }
     .badge-amber { background: #FAEEDA; color: #633806; }
+    .badge-blue { background: #E3F0FB; color: #1B6CA8; }
 
     .prog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
     .prog-card { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; overflow: hidden; }
@@ -346,6 +347,11 @@
                 <div class="mode-option-name">하이킹</div>
                 <div class="mode-option-desc">순차 이동, 단체 안전 관리</div>
               </div>
+              <div class="mode-option" data-mode="canoe">
+                <div class="mode-option-icon">🛶</div>
+                <div class="mode-option-name">카누</div>
+                <div class="mode-option-desc">수상 CP, 속도·거리 트래킹</div>
+              </div>
             </div>
           </div>
 
@@ -469,6 +475,41 @@
             <div class="form-group">
               <label>비상 연락처</label>
               <input type="text" id="hike-emergency" placeholder="예) 010-1234-5678">
+            </div>
+          </div>
+
+          <!-- 카누 설정 -->
+          <div id="settings-canoe" class="mode-settings" style="display:none">
+            <div style="font-size:12px;font-weight:500;color:#1B6CA8;margin-bottom:12px">🛶 카누 설정</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>CP 인증 반경 (m)</label>
+                <input type="number" id="canoe-radius" placeholder="예) 50" value="50" min="20">
+              </div>
+              <div class="form-group">
+                <label>참가자 위치 공유</label>
+                <select id="canoe-share">
+                  <option value="yes">공유</option>
+                  <option value="no">공유 안 함</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>안전 체크 간격 (분)</label>
+                <input type="number" id="canoe-check" placeholder="예) 10" value="10" min="5">
+              </div>
+              <div class="form-group">
+                <label>순위 결정 방식</label>
+                <select id="canoe-rank">
+                  <option value="cp-then-time">CP 수 → 시간 순</option>
+                  <option value="time">완주 시간 순</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>비상 연락처</label>
+              <input type="text" id="canoe-emergency" placeholder="예) 010-1234-5678">
             </div>
           </div>
 
@@ -832,8 +873,8 @@
   var isMonitorSatellite = false;
   var monitorMap = null;
   var monitorMarkers = [];
-  var modeBadge = { geocaching:'badge-green', orienteering:'badge-purple', hiking:'badge-amber' };
-  var modeNames = { geocaching:'지오캐싱', orienteering:'오리엔티어링', hiking:'하이킹' };
+  var modeBadge = { geocaching:'badge-green', orienteering:'badge-purple', hiking:'badge-amber', canoe:'badge-blue' };
+  var modeNames = { geocaching:'지오캐싱', orienteering:'오리엔티어링', hiking:'하이킹', canoe:'카누' };
   var gpxPolyline = null;  // 관리자 지도 GPX 경로 폴리라인
   var gpxRoute = [];       // GPX 좌표 배열 [{lat, lng}, ...]
 
@@ -893,6 +934,7 @@
     document.getElementById('settings-geocaching').style.display   = mode === 'geocaching'   ? 'block' : 'none';
     document.getElementById('settings-orienteering').style.display = mode === 'orienteering' ? 'block' : 'none';
     document.getElementById('settings-hiking').style.display       = mode === 'hiking'       ? 'block' : 'none';
+    document.getElementById('settings-canoe').style.display        = mode === 'canoe'        ? 'block' : 'none';
   }
 
   function getModeSettings() {
@@ -922,6 +964,14 @@
         radius: document.getElementById('hike-radius').value,
         check: document.getElementById('hike-check').value,
         emergency: document.getElementById('hike-emergency').value,
+      };
+    } else if (selectedMode === 'canoe') {
+      return {
+        radius: document.getElementById('canoe-radius').value,
+        share: document.getElementById('canoe-share').value,
+        check: document.getElementById('canoe-check').value,
+        rank: document.getElementById('canoe-rank').value,
+        emergency: document.getElementById('canoe-emergency').value,
       };
     }
     return {};
@@ -957,8 +1007,10 @@
       selectedCPIndex = null;
       document.getElementById('cp-edit-form').style.display = 'none';
       // 하이킹 모드면 GPX 패널 표시
-      var isHikingMode = prog && prog.mode === 'hiking';
+      var isHikingMode = prog && (prog.mode === 'hiking' || prog.mode === 'canoe');
       document.getElementById('gpx-panel').style.display = isHikingMode ? 'block' : 'none';
+      document.getElementById('gpx-panel').querySelector('.cp-panel-title').textContent =
+        (prog && prog.mode === 'canoe') ? '🛶 수상 경로 (GPX)' : '🗺️ GPX 경로';
       // 저장된 GPX 경로 로드
       gpxRoute = (prog && prog.gpxRoute && prog.gpxRoute.length > 0) ? prog.gpxRoute : [];
       if (gpxRoute.length > 0) {
@@ -1067,6 +1119,15 @@
     if (ms.radius      !== undefined) document.getElementById('hike-radius').value       = ms.radius;
     if (ms.check       !== undefined) document.getElementById('hike-check').value        = ms.check;
     if (ms.emergency)                  document.getElementById('hike-emergency').value    = ms.emergency;
+
+    // 카누 설정
+    if (selectedMode === 'canoe') {
+      if (ms.radius    !== undefined) document.getElementById('canoe-radius').value    = ms.radius;
+      if (ms.share)                   document.getElementById('canoe-share').value     = ms.share;
+      if (ms.check     !== undefined) document.getElementById('canoe-check').value     = ms.check;
+      if (ms.rank)                    document.getElementById('canoe-rank').value      = ms.rank;
+      if (ms.emergency)               document.getElementById('canoe-emergency').value = ms.emergency;
+    }
   }
 
   // ── 프로그램 저장 / 수정 (Firestore) ─────────────────

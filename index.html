@@ -548,7 +548,8 @@
       var modeColors = {
         geocaching:   { bg:'#E1F5EE', color:'#0F6E56', name:'지오캐싱' },
         orienteering: { bg:'#EEEDFE', color:'#534AB7', name:'오리엔티어링' },
-        hiking:       { bg:'#FAEEDA', color:'#633806', name:'하이킹' }
+        hiking:       { bg:'#FAEEDA', color:'#633806', name:'하이킹' },
+        canoe:        { bg:'#E3F0FB', color:'#1B6CA8', name:'카누' }
       };
 
       list.innerHTML = '';
@@ -789,7 +790,7 @@
           renderCPList();
           startGPSWatch();
           subscribeLeaderboard();
-          if (currentProgMode === 'hiking') initHikingUI();
+          if (currentProgMode === 'hiking' || currentProgMode === 'canoe') initHikingUI();
 
           if (existingData.status === 'finished') {
             showGpsAlert('🏆 이미 완주한 기록이 있어요!');
@@ -802,7 +803,7 @@
           renderCPList();
           startGPSWatch();
           subscribeLeaderboard();
-          if (currentProgMode === 'hiking') initHikingUI();
+          if (currentProgMode === 'hiking' || currentProgMode === 'canoe') initHikingUI();
         }
       }
 
@@ -1007,20 +1008,25 @@
           updateLocationFirestore(lat, lng);
         }
 
-        // 하이킹 통계 업데이트
-        if (currentProgMode === 'hiking') {
+        // 하이킹/카누 통계 업데이트
+        if (currentProgMode === 'hiking' || currentProgMode === 'canoe') {
           updateHikingStats(lat, lng, alt);
         }
+
+        // 카누 모드 CP 기본 반경 (modeSettings 우선)
+        var modeRadius = (currentProgMode === 'canoe' && currentModeSettings.radius)
+          ? parseInt(currentModeSettings.radius) : 30;
 
         // 출발 반경 감지 → 알림만, 인증은 마커 탭으로
         if (!started) {
           var s = checkpoints[0];
+          var startR = s.radius || modeRadius;
           var distToStart = getDistance(lat, lng, s.lat, s.lng);
-          if (distToStart <= (s.radius || 30) && !nearStart) {
+          if (distToStart <= startR && !nearStart) {
             nearStart = true;
             playAlert('start');
             showGpsAlert('🚩 출발 지점 도착! S 마커를 탭해서 인증하세요');
-          } else if (distToStart > (s.radius || 30) + 20) {
+          } else if (distToStart > startR + 20) {
             nearStart = false;
           }
         }
@@ -1055,7 +1061,7 @@
         if (started && !ended) {
           checkpoints.forEach(function(cp, i) {
             if (cp.type !== 'normal' || completedCPs.has(i) || nearbyAlerted.has(i)) return;
-            if (getDistance(lat, lng, cp.lat, cp.lng) <= (cp.radius || 30)) {
+            if (getDistance(lat, lng, cp.lat, cp.lng) <= (cp.radius || modeRadius)) {
               nearbyAlerted.add(i);
               gpsVerifiedCPs.add(i); // GPS 방문 확인
               playAlert('cp');
@@ -1399,13 +1405,26 @@
 
     // 하이킹 UI 초기화 (로그인 직후 호출)
     function initHikingUI() {
-      document.getElementById('hike-top-overlay').style.display = 'block';
+      var isCanoe = currentProgMode === 'canoe';
+      var overlay = document.getElementById('hike-top-overlay');
+      overlay.style.display = 'block';
+      // 카누 모드: HUD 색상 파란색으로
+      overlay.style.background = isCanoe ? 'rgba(27,108,168,0.92)' : '';
+
+      // 카누 모드: 고도 → 패들링 거리 레이블
+      var altEl = document.querySelector('#hike-top-overlay .h-stat:nth-child(3) .h-stat-l');
+      if (altEl) altEl.textContent = isCanoe ? 'km/h' : 'm';
+      var altVal = document.getElementById('hike-alt');
+      if (altVal) altVal.textContent = isCanoe ? '-' : '-';
+
       document.getElementById('hike-cp-total').textContent = totalNormalCPs;
+
       // 비상 연락처
       var emergency = currentModeSettings.emergency;
       if (emergency && emergency.trim()) {
         var btn = document.getElementById('emergency-btn');
         btn.style.display = 'flex';
+        if (isCanoe) btn.style.background = '#1B6CA8';
         btn.addEventListener('click', function() {
           var clean = emergency.replace(/[^0-9+]/g, '');
           if (confirm('📞 비상 연락처(' + emergency + ')로 전화하시겠습니까?')) {
@@ -1413,7 +1432,6 @@
           }
         });
       }
-      // 팀원 위치 구독
       subscribeTeam();
       updateHikingProgressBar();
     }

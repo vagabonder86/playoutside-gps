@@ -638,22 +638,26 @@
         </div>
 
         <!-- 통계 카드 -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px">
           <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
             <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">전체</div>
             <div style="font-size:30px;font-weight:600;color:#2c2c2a" id="stat-p-total">0</div>
           </div>
           <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
-            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">진행 중</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">대기중</div>
+            <div style="font-size:30px;font-weight:600;color:#D85A30" id="stat-p-waiting">0</div>
+          </div>
+          <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">진행중</div>
             <div style="font-size:30px;font-weight:600;color:#1D9E75" id="stat-p-progress">0</div>
           </div>
           <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
-            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">완주</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">완료</div>
             <div style="font-size:30px;font-weight:600;color:#534AB7" id="stat-p-finished">0</div>
           </div>
           <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:16px 20px">
-            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">미시작</div>
-            <div style="font-size:30px;font-weight:600;color:#aaa" id="stat-p-notstarted">0</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:6px;letter-spacing:.04em">포기</div>
+            <div style="font-size:30px;font-weight:600;color:#999" id="stat-p-abandoned">0</div>
           </div>
         </div>
 
@@ -662,9 +666,10 @@
           <div style="padding:12px 18px;border-bottom:0.5px solid #f0efe8;display:flex;align-items:center;justify-content:space-between">
             <div style="font-size:13px;font-weight:500">실시간 위치</div>
             <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#aaa">
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#D85A30;margin-right:4px"></span>대기중</span>
               <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#1D9E75;margin-right:4px"></span>진행중</span>
-              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#534AB7;margin-right:4px"></span>완주</span>
-              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#aaa;margin-right:4px"></span>미시작</span>
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#534AB7;margin-right:4px"></span>완료</span>
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#999;margin-right:4px"></span>포기</span>
               <button class="map-type-btn" id="monitor-map-type-btn" style="position:static;border-radius:6px;padding:4px 10px">🛰️ 위성</button>
             </div>
           </div>
@@ -769,6 +774,30 @@
     <div class="modal-btns">
       <button class="btn" id="cancel-delete-btn">취소</button>
       <button class="btn btn-danger" id="confirm-delete-btn">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 참가자 편집 모달 -->
+<div class="modal-bg" id="participant-edit-modal" style="display:none">
+  <div class="modal" style="max-width:380px">
+    <h3 id="pe-title">참가자 수정</h3>
+    <div style="font-size:12px;color:#888;margin-bottom:14px" id="pe-subtitle"></div>
+    <label style="font-size:12px;color:#666;display:block;margin-bottom:6px">상태</label>
+    <select id="pe-status" style="width:100%;padding:8px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:14px">
+      <option value="waiting">대기중</option>
+      <option value="in-progress">진행중</option>
+      <option value="finished">완료</option>
+      <option value="abandoned">포기</option>
+    </select>
+    <label style="font-size:12px;color:#666;display:block;margin-bottom:6px">완료 CP 수동 조정 <span style="color:#aaa">(쉼표로 구분된 인덱스)</span></label>
+    <input type="text" id="pe-completed" placeholder="예) 0,2,3" style="width:100%;padding:8px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:14px">
+    <div class="modal-btns" style="justify-content:space-between">
+      <button class="btn btn-danger" id="pe-delete-btn"><i class="ti ti-trash"></i> 참가자 삭제</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="pe-cancel-btn">취소</button>
+        <button class="btn btn-primary" id="pe-save-btn"><i class="ti ti-check"></i> 저장</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1806,8 +1835,9 @@
     monitorMarkers = [];
     liveParticipants.forEach(function(p) {
       if (!p.location || !p.location.lat || !p.location.lng) return;
-      var statusLabel = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
-      var color = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
+      var stMon = getStatusInfo(p.status);
+      var statusLabel = stMon.label;
+      var color = stMon.color;
       var marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(p.location.lat, p.location.lng),
         map: monitorMap,
@@ -1863,11 +1893,23 @@
     var total      = liveParticipants.length;
     var finished   = liveParticipants.filter(function(p) { return p.status === 'finished'; }).length;
     var inProgress = liveParticipants.filter(function(p) { return p.status === 'in-progress'; }).length;
-    var notStarted = liveParticipants.filter(function(p) { return p.status !== 'finished' && p.status !== 'in-progress'; }).length;
-    document.getElementById('stat-p-total').textContent      = total;
+    var abandoned  = liveParticipants.filter(function(p) { return p.status === 'abandoned'; }).length;
+    var waiting    = liveParticipants.filter(function(p) {
+      return p.status === 'waiting' || p.status === 'not-started' || !p.status;
+    }).length;
+    document.getElementById('stat-p-total').textContent     = total;
+    document.getElementById('stat-p-waiting').textContent   = waiting;
     document.getElementById('stat-p-progress').textContent  = inProgress;
     document.getElementById('stat-p-finished').textContent  = finished;
-    document.getElementById('stat-p-notstarted').textContent = notStarted;
+    document.getElementById('stat-p-abandoned').textContent = abandoned;
+  }
+
+  // 상태 헬퍼 (4가지: waiting/in-progress/finished/abandoned, not-started는 waiting으로 처리)
+  function getStatusInfo(s) {
+    if (s === 'finished')    return { key:'finished',    label:'완료',   color:'#534AB7', bg:'#EEEDFE' };
+    if (s === 'in-progress') return { key:'in-progress', label:'진행중', color:'#1D9E75', bg:'#E1F5EE' };
+    if (s === 'abandoned')   return { key:'abandoned',   label:'포기',   color:'#999',    bg:'#f0efe8' };
+    return                          { key:'waiting',     label:'대기중', color:'#D85A30', bg:'#FAEEDA' };
   }
 
   function renderParticipants() {
@@ -1879,10 +1921,11 @@
       ? liveParticipants.filter(function(p) { return p.name && p.name.includes(keyword); })
       : liveParticipants.slice();
 
-    // 상태별 정렬: 진행중 → 완주 → 미시작
+    // 상태별 정렬: 진행중 → 대기중 → 완료 → 포기
     filtered.sort(function(a, b) {
-      var order = { 'in-progress': 0, 'finished': 1 };
-      return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+      var order = { 'in-progress': 0, 'waiting': 1, 'not-started': 1, 'finished': 2, 'abandoned': 3 };
+      return (order[a.status] !== undefined ? order[a.status] : 1) -
+             (order[b.status] !== undefined ? order[b.status] : 1);
     });
 
     // 테이블 헤더 동적 생성
@@ -1897,6 +1940,7 @@
         '<th style="padding:10px 8px;text-align:center;font-weight:500">완료</th>' +
         '<th style="padding:10px 8px;text-align:center;font-weight:500">기록</th>' +
         '<th style="padding:10px 16px;text-align:center;font-weight:500">상태</th>' +
+        '<th style="padding:10px 8px;text-align:center;font-weight:500">관리</th>' +
         '</tr>';
     }
 
@@ -1909,9 +1953,8 @@
     }
 
     filtered.forEach(function(p) {
-      var statusLabel = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
-      var statusColor = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
-      var statusBg    = p.status === 'finished' ? '#EEEDFE' : p.status === 'in-progress' ? '#E1F5EE' : '#f0efe8';
+      var st = getStatusInfo(p.status);
+      var statusLabel = st.label, statusColor = st.color, statusBg = st.bg;
       var completedCPs = p.completedCPs || [];
       var completed = completedCPs.length;
       var elapsed = '-';
@@ -1949,12 +1992,72 @@
         cpCells +
         '<td style="padding:10px 8px;text-align:center;font-weight:600;color:#085041">' + completed + '<span style="color:#ccc;font-weight:400">/' + totalCPs + '</span></td>' +
         '<td style="padding:10px 8px;text-align:center;color:#888;white-space:nowrap">' + elapsed + '</td>' +
-        '<td style="padding:10px 16px;text-align:center"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500">' + statusLabel + '</span></td>';
+        '<td style="padding:10px 16px;text-align:center"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500">' + statusLabel + '</span></td>' +
+        '<td style="padding:10px 8px;text-align:center"><button class="btn btn-sm edit-p-btn" data-uid="' + (p.userId || '') + '" style="padding:4px 10px"><i class="ti ti-pencil"></i></button></td>';
       tbody.appendChild(tr);
+    });
+
+    // 편집 버튼 이벤트
+    document.querySelectorAll('.edit-p-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        openParticipantEditModal(this.dataset.uid);
+      });
     });
   }
 
   function filterParticipants() { renderParticipants(); }
+
+  // ── 참가자 편집 모달 ─────────────────────────────────
+  var editingParticipantId = null;
+
+  function openParticipantEditModal(uid) {
+    var p = liveParticipants.find(function(x) { return x.userId === uid; });
+    if (!p) { alert('참가자를 찾을 수 없습니다'); return; }
+    editingParticipantId = uid;
+    document.getElementById('pe-title').textContent = (p.name || '-') + ' 참가자 수정';
+    document.getElementById('pe-subtitle').textContent = p.phone ? '전화 뒷자리: ' + p.phone : '';
+    document.getElementById('pe-status').value =
+      ['waiting','in-progress','finished','abandoned'].indexOf(p.status) >= 0 ? p.status : 'waiting';
+    document.getElementById('pe-completed').value = (p.completedCPs || []).join(',');
+    document.getElementById('participant-edit-modal').style.display = 'flex';
+  }
+
+  document.getElementById('pe-cancel-btn').addEventListener('click', function() {
+    document.getElementById('participant-edit-modal').style.display = 'none';
+    editingParticipantId = null;
+  });
+
+  document.getElementById('pe-save-btn').addEventListener('click', function() {
+    if (!editingParticipantId || !currentProgId) return;
+    var newStatus = document.getElementById('pe-status').value;
+    var cpsRaw = document.getElementById('pe-completed').value.trim();
+    var cps = cpsRaw ? cpsRaw.split(',').map(function(s){ return parseInt(s.trim()); }).filter(function(n){ return !isNaN(n); }) : [];
+    var update = { status: newStatus, completedCPs: cps };
+    if (newStatus === 'finished' && !liveParticipants.find(function(p){ return p.userId === editingParticipantId; }).finishedAt) {
+      update.finishedAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+    db.collection('participants').doc(currentProgId).collection('users').doc(editingParticipantId)
+      .set(update, { merge: true })
+      .then(function() {
+        showAdminToast('✅ 참가자 정보가 저장되었습니다');
+        document.getElementById('participant-edit-modal').style.display = 'none';
+        editingParticipantId = null;
+      })
+      .catch(function(err) { alert('저장 실패: ' + err.message); });
+  });
+
+  document.getElementById('pe-delete-btn').addEventListener('click', function() {
+    if (!editingParticipantId || !currentProgId) return;
+    if (!confirm('이 참가자를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.')) return;
+    db.collection('participants').doc(currentProgId).collection('users').doc(editingParticipantId)
+      .delete()
+      .then(function() {
+        showAdminToast('🗑️ 참가자가 삭제되었습니다');
+        document.getElementById('participant-edit-modal').style.display = 'none';
+        editingParticipantId = null;
+      })
+      .catch(function(err) { alert('삭제 실패: ' + err.message); });
+  });
 
   function exportCSV() {
     var prog = programs.find(function(p) { return p.id === currentProgId; });
@@ -1972,7 +2075,7 @@
         var origIdx = prog.cps.indexOf(cp);
         return completedCPs.indexOf(origIdx) !== -1 ? 'O' : 'X';
       });
-      var status = p.status === 'finished' ? '완주' : p.status === 'in-progress' ? '진행중' : '미시작';
+      var status = getStatusInfo(p.status).label;
       return [p.name || '', p.phone || ''].concat(cpVals).concat([completedCPs.length, elapsed, status]);
     });
     var csv = '﻿' + [headers].concat(rows).map(function(r) { return r.join(','); }).join('\n');

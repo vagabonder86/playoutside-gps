@@ -853,6 +853,7 @@
           }
         } else {
           // ── 신규 참가자 ─────────────────────────────────
+          recordLogin(); // 로그인 즉시 '대기중'으로 등록
           initMap();
           renderCPList();
           startGPSWatch();
@@ -865,6 +866,11 @@
         userRef.get().then(function(doc) {
           btn.disabled = false;
           btn.textContent = '시작하기';
+          // 'waiting' 상태로만 등록된 참가자는 다이얼로그 없이 바로 진입
+          if (doc.exists && doc.data().status === 'waiting') {
+            startApp(doc.data());
+            return;
+          }
           if (doc.exists && doc.data().status && doc.data().status !== 'not-started') {
             var data = doc.data();
             // 이미 등록된 참가자 → 확인 다이얼로그 표시
@@ -909,6 +915,19 @@
     }
 
     // ── 출발 인증 → Firestore 기록 ───────────────────────
+    function recordLogin() {
+      if (!currentProgId || !userId) return;
+      db.collection('participants').doc(currentProgId).collection('users').doc(userId).set({
+        name: userName,
+        phone: userPhone,
+        loggedInAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'waiting',
+        completedCPs: []
+      }, { merge: true }).catch(function(err) {
+        console.error('로그인 기록 오류:', err);
+      });
+    }
+
     function recordStart() {
       if (!currentProgId || !userId) return;
       db.collection('participants').doc(currentProgId).collection('users').doc(userId).set({

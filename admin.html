@@ -587,6 +587,17 @@
                   <i class="ti ti-plus"></i> 보기 추가
                 </button>
               </div>
+              <label>인증 방식</label>
+              <select id="cp-qr-mode-input">
+                <option value="gps">GPS만 (기본)</option>
+                <option value="qr-instant">QR 인증만 (즉시 완료)</option>
+                <option value="qr-visit">QR 인증 + 미션 확인 (방문 완료)</option>
+                <option value="qr-answer">QR 인증 + 정답 확인</option>
+              </select>
+              <button type="button" id="cp-qr-show-btn" class="btn btn-sm" style="width:100%;justify-content:center;margin-top:4px;display:none">
+                <i class="ti ti-qrcode"></i> CP QR 코드 보기
+              </button>
+
               <label>힌트 이미지 URL <span style="font-weight:400;color:#aaa">(선택)</span></label>
               <input type="text" id="cp-hint-image-input" placeholder="https://...">
               <label>좌표 <span style="font-weight:400;color:#aaa">(직접 입력 또는 지도 클릭)</span></label>
@@ -936,6 +947,16 @@
   });
   document.getElementById('cp-add-choice-btn').addEventListener('click', function() {
     addChoiceRow('', false);
+  });
+  document.getElementById('cp-qr-mode-input').addEventListener('change', function() {
+    document.getElementById('cp-qr-show-btn').style.display = this.value === 'gps' ? 'none' : 'block';
+  });
+  document.getElementById('cp-qr-show-btn').addEventListener('click', function() {
+    if (selectedCPIndex === null) return;
+    var cp = cpData[selectedCPIndex];
+    if (!cp || !cp.id) { alert('CP 저장 후 QR 코드를 생성할 수 있어요'); return; }
+    if (!currentProgId) { alert('프로그램 저장 후 사용 가능합니다'); return; }
+    showCPQRModal(currentProgId, cp.id, cp.name);
   });
   document.getElementById('save-all-btn').addEventListener('click', saveCPsToProgram);
   document.getElementById('cancel-delete-btn').addEventListener('click', function() {
@@ -1649,6 +1670,10 @@
     var mType = cp.missionType || 'text';
     document.getElementById('cp-mission-type-input').value = mType;
     updateMissionTypeUI(mType, cp);
+    // QR 인증 방식 복원
+    var qrMode = cp.qrMode || 'gps';
+    document.getElementById('cp-qr-mode-input').value = qrMode;
+    document.getElementById('cp-qr-show-btn').style.display = qrMode === 'gps' ? 'none' : 'block';
     renderCPListAdmin();
     adminMap.setCenter(new naver.maps.LatLng(cp.lat, cp.lng));
   }
@@ -1662,6 +1687,7 @@
     cpData[selectedCPIndex].lat         = parseFloat(document.getElementById('cp-lat-input').value);
     cpData[selectedCPIndex].lng         = parseFloat(document.getElementById('cp-lng-input').value);
     cpData[selectedCPIndex].missionType = mType;
+    cpData[selectedCPIndex].qrMode      = document.getElementById('cp-qr-mode-input').value;
     if (mType === 'text') {
       cpData[selectedCPIndex].answer  = document.getElementById('cp-answer-input').value.trim();
       cpData[selectedCPIndex].choices = null;
@@ -2207,6 +2233,18 @@
     document.getElementById('download-qr-btn').href = qrUrl;
     document.getElementById('qr-modal').style.display = 'flex';
   }
+  // CP별 QR 코드 모달
+  function showCPQRModal(progId, cpId, cpName) {
+    var url = 'https://play.playoutside.co.kr/?prog=' + progId + '&cp=' + encodeURIComponent(cpId);
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
+    document.getElementById('qr-modal-name').textContent = (cpName || cpId) + ' — CP QR';
+    document.getElementById('qr-image').src = qrUrl;
+    document.getElementById('qr-url-text').textContent = url;
+    document.getElementById('download-qr-btn').href = qrUrl;
+    document.getElementById('download-qr-btn').setAttribute('download', cpId + '.png');
+    document.getElementById('qr-modal').style.display = 'flex';
+  }
+
   document.getElementById('close-qr-btn').addEventListener('click', function() {
     document.getElementById('qr-modal').style.display = 'none';
   });

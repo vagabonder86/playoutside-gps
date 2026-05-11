@@ -512,6 +512,7 @@
 
     // ── 공개된 프로그램 목록 로드 → 선택 화면 표시 ────────
     var availablePrograms = [];
+    var pendingQrCpId = null;        // QR 진입 시 인증 대기 중인 CP id
 
     function loadPublishedPrograms() {
       db.collection('programs').where('published', '==', true).get().then(function(snap) {
@@ -527,6 +528,9 @@
           var prog = availablePrograms.find(function(p) { return p.id === progId; });
           if (prog) { selectProgram(prog); return; }
         }
+        // QR로 들어온 CP id 캐시 → 로그인 후 처리
+        var qrCp = urlParams.get('cp');
+        if (qrCp) pendingQrCpId = qrCp;
       }).catch(function(err) {
         console.error('프로그램 목록 로드 오류:', err);
         document.getElementById('sel-list').innerHTML =
@@ -600,7 +604,8 @@
             type:        cp.type,
             radius:      cp.radius || 30,
             missionType: cp.missionType || 'text',
-            choices:     cp.choices || null
+            choices:     cp.choices || null,
+            qrMode:      cp.qrMode || 'gps'
           };
         });
         totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
@@ -860,6 +865,13 @@
           subscribeLeaderboard();
           if (currentProgMode === 'hiking' || currentProgMode === 'canoe') initHikingUI();
         }
+
+        // QR 진입한 경우 인증 흐름 시작
+        if (pendingQrCpId) {
+          var _qrId = pendingQrCpId;
+          pendingQrCpId = null;
+          setTimeout(function() { verifyCPByQR(_qrId); }, 800);
+        }
       }
 
       if (userRef) {
@@ -915,6 +927,57 @@
     }
 
     // ── 출발 인증 → Firestore 기록 ───────────────────────
+    // ── QR 코드로 CP 인증 ────────────────────────────────
+    function verifyCPByQR(cpId) {
+      if (!started) { showGpsAlert('먼저 출발 인증을 해주세요!'); return; }
+      if (ended)    { showGpsAlert('🏆 이미 완주했습니다'); return; }
+      var idx = checkpoints.findIndex(function(c) { return c.id === cpId; });
+      if (idx === -1) { showGpsAlert('CP를 찾을 수 없습니다 (' + cpId + ')'); return; }
+      var cp = checkpoints[idx];
+      if (completedCPs.has(idx)) { showGpsAlert('✅ 이미 완료한 CP입니다'); return; }
+      var qrMode = cp.qrMode || 'gps';
+      if (qrMode === 'gps') {
+        showGpsAlert('이 CP는 GPS 인증 전용입니다. 직접 방문해주세요.');
+        return;
+      }
+
+      // 오리엔티어링 순차 진행 체크
+      if (currentProgMode === 'orienteering') {
+        var nextOri = -1;
+        for (var oi = 0; oi < checkpoints.length; oi++) {
+          if (checkpoints[oi].type === 'normal' && !completedCPs.has(oi)) { nextOri = oi; break; }
+        }
+        if (nextOri !== -1 && nextOri !== idx) {
+          showGpsAlert('순서대로 진행! 다음 CP: ' + checkpoints[nextOri].name);
+          return;
+        }
+      }
+
+      gpsVerifiedCPs.add(idx); // QR 인증 = 방문 확인
+      playAlert('cp');
+
+      if (qrMode === 'qr-instant') {
+        // 즉시 완료 (질문/정답 없음)
+        completedCPs.add(idx);
+        recordCPComplete(idx);
+        var remaining = checkpoints.filter(function(c, i) {
+          return c.type === 'normal' && !completedCPs.has(i);
+        }).length;
+        document.getElementById('success-icon').textContent  = '📱';
+        document.getElementById('success-title').textContent = 'QR 인증 완료!';
+        document.getElementById('success-sub').textContent   = remaining > 0
+          ? cp.name + ' 완료! 남은 포인트: ' + remaining + '/' + totalNormalCPs + '개'
+          : cp.name + ' 완료! 이제 도착 지점으로 이동하세요. 🏃';
+        document.getElementById('success-overlay').style.display = 'flex';
+        updateMarkers();
+        renderCPList();
+      } else {
+        // qr-visit / qr-answer → 미션 오버레이로 진입 (missionType이 흐름 결정)
+        showGpsAlert('📱 QR 인증! 미션을 확인하세요');
+        setTimeout(function() { openMission(idx); }, 600);
+      }
+    }
+
     function recordLogin() {
       if (!currentProgId || !userId) return;
       db.collection('participants').doc(currentProgId).collection('users').doc(userId).set({

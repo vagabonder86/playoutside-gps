@@ -1105,6 +1105,7 @@
 
     // 오리엔티어링 설정
     if (ms.start)                      document.getElementById('ori-start').value         = ms.start;
+    if (ms.reveal && selectedMode === 'orienteering') document.getElementById('ori-reveal').value = ms.reveal;
     if (ms.rank)                       document.getElementById('ori-rank').value          = ms.rank;
     if (ms.penalty     !== undefined) document.getElementById('ori-penalty').value       = ms.penalty;
     if (ms.team) {
@@ -1590,8 +1591,9 @@
     row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
     row.innerHTML =
       '<input type="radio" name="cp-choice-correct" class="cp-choice-correct" style="flex-shrink:0;accent-color:#1D9E75">' +
-      '<input type="text" class="cp-choice-text" placeholder="보기 내용" value="' + (text || '') + '" style="flex:1;padding:7px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">' +
+      '<input type="text" class="cp-choice-text" placeholder="보기 내용" style="flex:1;padding:7px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">' +
       '<button type="button" class="cp-choice-del btn btn-sm btn-danger" style="padding:4px 8px;flex-shrink:0"><i class="ti ti-x"></i></button>';
+    row.querySelector('.cp-choice-text').value = text || '';
     row.querySelector('.cp-choice-correct').checked = isCorrect;
     row.querySelector('.cp-choice-del').addEventListener('click', function() { row.remove(); });
     list.appendChild(row);
@@ -1603,7 +1605,9 @@
     document.getElementById('cp-edit-form').style.display = 'block';
     document.getElementById('cp-form-title').textContent = cp.name + ' 편집';
     document.getElementById('cp-mission-input').value = cp.mission || '';
-    document.getElementById('cp-answer-input').value = cp.answer || '';
+    // 텍스트 정답은 missionType이 text일 때만 채움 (choice/ox는 다른 위젯 사용)
+    var _mt = cp.missionType || 'text';
+    document.getElementById('cp-answer-input').value = (_mt === 'text') ? (cp.answer || '') : '';
     document.getElementById('cp-lat-input').value = cp.lat;
     document.getElementById('cp-lng-input').value = cp.lng;
     document.getElementById('cp-type-input').value = cp.type || 'normal';

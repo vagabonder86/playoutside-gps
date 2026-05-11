@@ -455,6 +455,8 @@
     var completedCPs  = new Set();
     var gpsVerifiedCPs = new Set(); // GPS로 실제 방문 확인된 CP
     var nearbyAlerted = new Set();
+    var nearStart = false; // 출발 반경 내 여부
+    var nearEnd   = false; // 도착 반경 내 여부
     var activeCPIndex = null;
     var map, userMarker, markers = [];
     var timerInterval, startTime;
@@ -943,22 +945,20 @@
           updateHikingStats(lat, lng, alt);
         }
 
-        // 출발 자동 인증
+        // 출발 반경 감지 → 알림만, 인증은 마커 탭으로
         if (!started) {
           var s = checkpoints[0];
-          if (getDistance(lat, lng, s.lat, s.lng) <= (s.radius || 30)) {
-            started = true;
-            completedCPs.add(0);
-            startTimer();
-            recordStart();
-            updateMarkers();
-            renderCPList();
+          var distToStart = getDistance(lat, lng, s.lat, s.lng);
+          if (distToStart <= (s.radius || 30) && !nearStart) {
+            nearStart = true;
             playAlert('start');
-            showGpsAlert('🚀 출발 인증 완료! 타이머 시작!');
+            showGpsAlert('🚩 출발 지점 도착! S 마커를 탭해서 인증하세요');
+          } else if (distToStart > (s.radius || 30) + 20) {
+            nearStart = false;
           }
         }
 
-        // 도착 자동 인증 (모든 미션 완료 후에만)
+        // 도착 반경 감지 → 알림만, 인증은 마커 탭으로
         if (started && !ended) {
           var ei = checkpoints.length - 1;
           var endCPobj = checkpoints[ei];
@@ -967,26 +967,20 @@
           });
           var distToEnd = getDistance(lat, lng, endCPobj.lat, endCPobj.lng);
           if (distToEnd <= (endCPobj.radius || 30)) {
-            if (allNormalDone) {
-              // 모든 미션 완료 → 도착 인증
-              ended = true;
-              completedCPs.add(ei);
-              stopTimer();
-              recordFinish();
-              updateMarkers();
-              renderCPList();
-              playAlert('finish');
-              showSuccessEnd();
-            } else if (!nearbyAlerted.has('finish-warn')) {
-              // 미션 미완료 상태로 도착 지점 진입 → 안내
-              nearbyAlerted.add('finish-warn');
-              var remaining = checkpoints.filter(function(c, idx) {
-                return c.type === 'normal' && !completedCPs.has(idx);
-              }).length;
-              showGpsAlert('⚠️ 미션 ' + remaining + '개 남았습니다! 먼저 완료하세요');
+            if (!nearEnd) {
+              nearEnd = true;
+              if (allNormalDone) {
+                playAlert('finish');
+                showGpsAlert('🏁 도착 지점 도착! F 마커를 탭해서 인증하세요');
+              } else {
+                var remaining = checkpoints.filter(function(c, idx) {
+                  return c.type === 'normal' && !completedCPs.has(idx);
+                }).length;
+                showGpsAlert('⚠️ 미션 ' + remaining + '개 남았습니다! 먼저 완료하세요');
+              }
             }
-          } else {
-            nearbyAlerted.delete('finish-warn');
+          } else if (distToEnd > (endCPobj.radius || 30) + 20) {
+            nearEnd = false;
           }
         }
 
@@ -1033,12 +1027,27 @@
     function openMission(i) {
       var cp = checkpoints[i];
       if (cp.type === 'start') {
-        alert(started ? '출발 인증 완료!' : '출발 지점 반경 30m 안으로 이동하면 GPS가 자동으로 인증합니다.');
+        if (started) {
+          showGpsAlert('✅ 출발 인증 완료!');
+        } else if (nearStart) {
+          // 반경 내 → 수동 인증 실행
+          started = true;
+          completedCPs.add(i);
+          startTimer();
+          recordStart();
+          updateMarkers();
+          renderCPList();
+          showGpsAlert('🚀 출발 인증 완료! 타이머 시작!');
+        } else {
+          showGpsAlert('📍 출발 지점 30m 반경 안으로 이동해주세요');
+        }
         return;
       }
       if (cp.type === 'end') {
         if (ended) {
-          alert('🏆 도착 인증 완료!');
+          showGpsAlert('🏆 도착 인증 완료!');
+        } else if (!started) {
+          showGpsAlert('먼저 출발 인증을 해주세요');
         } else {
           var allDone = checkpoints.every(function(c, idx) {
             return c.type !== 'normal' || completedCPs.has(idx);
@@ -1047,9 +1056,18 @@
             var left = checkpoints.filter(function(c, idx) {
               return c.type === 'normal' && !completedCPs.has(idx);
             }).length;
-            alert('⚠️ 미션 ' + left + '개를 먼저 완료해야 도착 인증이 됩니다!');
+            showGpsAlert('⚠️ 미션 ' + left + '개를 먼저 완료해야 합니다!');
+          } else if (nearEnd) {
+            // 반경 내 + 모든 미션 완료 → 수동 인증
+            ended = true;
+            completedCPs.add(i);
+            stopTimer();
+            recordFinish();
+            updateMarkers();
+            renderCPList();
+            showSuccessEnd();
           } else {
-            alert('도착 지점 반경 30m 안으로 이동하면 GPS가 자동으로 인증합니다.');
+            showGpsAlert('🏁 도착 지점 30m 반경 안으로 이동해주세요');
           }
         }
         return;
@@ -1194,22 +1212,25 @@
         var statusClass, statusText, desc, badgeLabel, badgeStyle;
 
         if (cp.type === 'start') {
-          statusClass = done ? 'status-done' : 'status-open';
-          statusText  = done ? '인증완료' : 'GPS 대기';
+          statusClass = done ? 'status-done' : (nearStart ? 'status-open' : 'status-lock');
+          statusText  = done ? '인증완료' : (nearStart ? '인증 가능' : 'GPS 대기');
           desc        = done ? '출발 인증 완료'
-                             : startEndSame ? '출발 지점 — 미션 완료 후 이곳으로 복귀'
-                                           : '출발 지점 30m 반경 진입 시 자동 인증';
+                             : nearStart ? '✅ 반경 도착! S 마커를 탭해서 인증하세요'
+                             : startEndSame ? '출발 지점 — 30m 반경 진입 후 탭하여 인증'
+                                           : '출발 지점 30m 반경 진입 후 탭하여 인증';
           badgeLabel  = done ? '✓' : 'S';
           badgeStyle  = 'background:#E1F5EE;color:#0F6E56';
         } else if (cp.type === 'end') {
           var allNormalDone = checkpoints.every(function(c, idx) {
             return c.type !== 'normal' || completedCPs.has(idx);
           });
-          statusClass = done ? 'status-done' : (startEndSame && !allNormalDone) ? 'status-lock' : 'status-lock';
-          statusText  = done ? '인증완료' : 'GPS 대기';
+          var canFinish = allNormalDone && nearEnd;
+          statusClass = done ? 'status-done' : (canFinish ? 'status-open' : 'status-lock');
+          statusText  = done ? '인증완료' : (canFinish ? '인증 가능' : 'GPS 대기');
           desc        = done ? '도착 인증 완료'
-                             : startEndSame ? '모든 미션 완료 후 출발 지점으로 복귀 시 자동 인증'
-                                           : '도착 지점 30m 반경 진입 시 자동 인증';
+                             : canFinish ? '✅ 반경 도착! F 마커를 탭해서 인증하세요'
+                             : !allNormalDone ? '모든 미션 완료 후 30m 반경 진입 후 탭하여 인증'
+                                             : '도착 지점 30m 반경 진입 후 탭하여 인증';
           badgeLabel  = done ? '✓' : 'F';
           badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : 'background:#FAECE7;color:#712B13';
         } else {

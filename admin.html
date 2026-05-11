@@ -516,8 +516,35 @@
               <input type="text" id="cp-name-input" placeholder="예: 팔각정">
               <label>미션 설명</label>
               <textarea id="cp-mission-input" placeholder="참가자에게 보여줄 미션 내용"></textarea>
-              <label>정답</label>
-              <input type="text" id="cp-answer-input" placeholder="정답 키워드">
+              <label>미션 유형</label>
+              <select id="cp-mission-type-input">
+                <option value="text">텍스트 입력</option>
+                <option value="ox">OX 퀴즈</option>
+                <option value="choice">객관식</option>
+                <option value="none">방문 인증 (정답 없음)</option>
+              </select>
+              <div id="cp-answer-text-wrap">
+                <label>정답</label>
+                <input type="text" id="cp-answer-input" placeholder="정답 키워드">
+              </div>
+              <div id="cp-ox-wrap" style="display:none">
+                <label>정답 선택</label>
+                <div style="display:flex;gap:8px">
+                  <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px;border:0.5px solid #ddd;border-radius:8px;cursor:pointer">
+                    <input type="radio" name="cp-ox-answer" value="O"> ⭕ O
+                  </label>
+                  <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px;border:0.5px solid #ddd;border-radius:8px;cursor:pointer">
+                    <input type="radio" name="cp-ox-answer" value="X"> ❌ X
+                  </label>
+                </div>
+              </div>
+              <div id="cp-choice-wrap" style="display:none">
+                <label>보기 (정답 앞에 ✓ 체크)</label>
+                <div id="cp-choices-list"></div>
+                <button type="button" id="cp-add-choice-btn" class="btn btn-sm" style="width:100%;justify-content:center;margin-top:4px">
+                  <i class="ti ti-plus"></i> 보기 추가
+                </button>
+              </div>
               <label>힌트 이미지 URL <span style="font-weight:400;color:#aaa">(선택)</span></label>
               <input type="text" id="cp-hint-image-input" placeholder="https://...">
               <label>좌표 <span style="font-weight:400;color:#aaa">(직접 입력 또는 지도 클릭)</span></label>
@@ -832,6 +859,12 @@
   document.getElementById('delete-cp-btn').addEventListener('click', deleteCP);
   document.getElementById('cp-type-input').addEventListener('change', function() {
     updateNameInputForType(this.value);
+  });
+  document.getElementById('cp-mission-type-input').addEventListener('change', function() {
+    updateMissionTypeUI(this.value, null);
+  });
+  document.getElementById('cp-add-choice-btn').addEventListener('click', function() {
+    addChoiceRow('', false);
   });
   document.getElementById('save-all-btn').addEventListener('click', saveCPsToProgram);
   document.getElementById('cancel-delete-btn').addEventListener('click', function() {
@@ -1469,6 +1502,40 @@
     }
   }
 
+  function updateMissionTypeUI(mType, cp) {
+    document.getElementById('cp-answer-text-wrap').style.display = (mType === 'text') ? 'block' : 'none';
+    document.getElementById('cp-ox-wrap').style.display           = (mType === 'ox')   ? 'block' : 'none';
+    document.getElementById('cp-choice-wrap').style.display       = (mType === 'choice') ? 'block' : 'none';
+    if (mType === 'ox' && cp) {
+      var oxAnswer = cp.answer || 'O';
+      var radios = document.querySelectorAll('input[name="cp-ox-answer"]');
+      radios.forEach(function(r) { r.checked = (r.value === oxAnswer); });
+    }
+    if (mType === 'choice') {
+      document.getElementById('cp-choices-list').innerHTML = '';
+      var choices = (cp && cp.choices) ? cp.choices : ['', ''];
+      var correctIdx = (cp && cp.answer !== undefined) ? parseInt(cp.answer) : 0;
+      choices.forEach(function(txt, idx) {
+        addChoiceRow(txt, idx === correctIdx);
+      });
+      if (choices.length === 0) { addChoiceRow('', true); addChoiceRow('', false); }
+    }
+  }
+
+  function addChoiceRow(text, isCorrect) {
+    var list = document.getElementById('cp-choices-list');
+    var row = document.createElement('div');
+    row.className = 'cp-choice-item';
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
+    row.innerHTML =
+      '<input type="radio" name="cp-choice-correct" class="cp-choice-correct" style="flex-shrink:0;accent-color:#1D9E75">' +
+      '<input type="text" class="cp-choice-text" placeholder="보기 내용" value="' + (text || '') + '" style="flex:1;padding:7px 10px;border:0.5px solid #ddd;border-radius:8px;font-size:13px">' +
+      '<button type="button" class="cp-choice-del btn btn-sm btn-danger" style="padding:4px 8px;flex-shrink:0"><i class="ti ti-x"></i></button>';
+    row.querySelector('.cp-choice-correct').checked = isCorrect;
+    row.querySelector('.cp-choice-del').addEventListener('click', function() { row.remove(); });
+    list.appendChild(row);
+  }
+
   function selectCP(i) {
     selectedCPIndex = i;
     var cp = cpData[i];
@@ -1483,18 +1550,44 @@
     document.getElementById('cp-name-input').value = cp.name;
     document.getElementById('cp-hint-image-input').value = cp.hintImage || '';
     updateNameInputForType(cp.type || 'normal');
+    // 미션 유형 복원
+    var mType = cp.missionType || 'text';
+    document.getElementById('cp-mission-type-input').value = mType;
+    updateMissionTypeUI(mType, cp);
     renderCPListAdmin();
     adminMap.setCenter(new naver.maps.LatLng(cp.lat, cp.lng));
   }
 
   function saveCP() {
     if (selectedCPIndex === null) return;
-    cpData[selectedCPIndex].type      = document.getElementById('cp-type-input').value;
-    cpData[selectedCPIndex].mission   = document.getElementById('cp-mission-input').value.trim();
-    cpData[selectedCPIndex].answer    = document.getElementById('cp-answer-input').value.trim();
-    cpData[selectedCPIndex].hintImage = document.getElementById('cp-hint-image-input').value.trim();
-    cpData[selectedCPIndex].lat       = parseFloat(document.getElementById('cp-lat-input').value);
-    cpData[selectedCPIndex].lng       = parseFloat(document.getElementById('cp-lng-input').value);
+    var mType = document.getElementById('cp-mission-type-input').value;
+    cpData[selectedCPIndex].type        = document.getElementById('cp-type-input').value;
+    cpData[selectedCPIndex].mission     = document.getElementById('cp-mission-input').value.trim();
+    cpData[selectedCPIndex].hintImage   = document.getElementById('cp-hint-image-input').value.trim();
+    cpData[selectedCPIndex].lat         = parseFloat(document.getElementById('cp-lat-input').value);
+    cpData[selectedCPIndex].lng         = parseFloat(document.getElementById('cp-lng-input').value);
+    cpData[selectedCPIndex].missionType = mType;
+    if (mType === 'text') {
+      cpData[selectedCPIndex].answer  = document.getElementById('cp-answer-input').value.trim();
+      cpData[selectedCPIndex].choices = null;
+    } else if (mType === 'ox') {
+      var oxVal = document.querySelector('input[name="cp-ox-answer"]:checked');
+      cpData[selectedCPIndex].answer  = oxVal ? oxVal.value : 'O';
+      cpData[selectedCPIndex].choices = null;
+    } else if (mType === 'choice') {
+      var choiceItems = document.querySelectorAll('.cp-choice-item');
+      var choices = [], correctIdx = -1;
+      choiceItems.forEach(function(row, idx) {
+        var txt = row.querySelector('.cp-choice-text').value.trim();
+        if (row.querySelector('.cp-choice-correct').checked) correctIdx = idx;
+        choices.push(txt);
+      });
+      cpData[selectedCPIndex].choices = choices;
+      cpData[selectedCPIndex].answer  = correctIdx >= 0 ? String(correctIdx) : '0';
+    } else {
+      cpData[selectedCPIndex].answer  = '';
+      cpData[selectedCPIndex].choices = null;
+    }
 
     // 타입에 따라 id·name 자동 고정
     if (cpData[selectedCPIndex].type === 'start') {

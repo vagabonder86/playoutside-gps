@@ -302,9 +302,18 @@
       <div id="mission-input-wrap">
         <label>정답 입력</label>
         <input id="mission-input" type="text" placeholder="답을 입력하세요">
-        <div id="mission-error" style="font-size:12px;color:#E24B4A;margin-top:-8px;margin-bottom:8px;display:none">
-          틀렸습니다. 다시 시도해보세요.
+      </div>
+      <div id="mission-ox-wrap" style="display:none;margin-bottom:12px">
+        <div style="display:flex;gap:10px">
+          <button id="ox-btn-o" class="ox-btn" data-val="O" style="flex:1;padding:18px;font-size:28px;border-radius:12px;border:2px solid #e0e0d8;background:white;cursor:pointer">⭕</button>
+          <button id="ox-btn-x" class="ox-btn" data-val="X" style="flex:1;padding:18px;font-size:28px;border-radius:12px;border:2px solid #e0e0d8;background:white;cursor:pointer">❌</button>
         </div>
+      </div>
+      <div id="mission-choice-wrap" style="display:none;margin-bottom:12px">
+        <div id="mission-choice-list"></div>
+      </div>
+      <div id="mission-error" style="font-size:12px;color:#E24B4A;margin-bottom:8px;display:none">
+        틀렸습니다. 다시 시도해보세요.
       </div>
       <button class="btn-green" id="check-answer-btn">확인</button>
       <button class="btn-gray" id="close-mission-btn">닫기</button>
@@ -1050,8 +1059,8 @@
               nearbyAlerted.add(i);
               gpsVerifiedCPs.add(i); // GPS 방문 확인
               playAlert('cp');
-              showGpsAlert('📍 ' + cp.name + ' 도착! 미션을 확인하세요');
-              setTimeout(function() { openMission(i); }, 1000);
+              showGpsAlert('📍 ' + cp.name + ' 도착! 마커를 탭해서 미션을 확인하세요');
+              renderCPList();
             }
           });
           checkpoints.forEach(function(cp, i) {
@@ -1150,10 +1159,43 @@
         hintWrap.style.display = 'none';
       }
 
+      var mType = cp.missionType || 'text';
       var hasAnswer = cp.answer && cp.answer.trim() !== '';
-      document.getElementById('mission-input-wrap').style.display = hasAnswer ? 'block' : 'none';
-      document.getElementById('check-answer-btn').textContent = hasAnswer ? '확인' : '✅ 방문 완료';
+
+      // 미션 유형별 UI 전환
+      document.getElementById('mission-input-wrap').style.display  = (mType === 'text' && hasAnswer) ? 'block' : 'none';
+      document.getElementById('mission-ox-wrap').style.display     = (mType === 'ox')     ? 'block' : 'none';
+      document.getElementById('mission-choice-wrap').style.display = (mType === 'choice') ? 'block' : 'none';
       document.getElementById('mission-input').value = '';
+      document.getElementById('mission-error').style.display = 'none';
+
+      // OX 선택 초기화
+      document.querySelectorAll('.ox-btn').forEach(function(b) {
+        b.style.background = 'white'; b.style.borderColor = '#e0e0d8';
+      });
+
+      // 객관식 보기 렌더링
+      if (mType === 'choice' && cp.choices) {
+        var cl = document.getElementById('mission-choice-list');
+        cl.innerHTML = '';
+        cp.choices.forEach(function(txt, idx) {
+          var btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          btn.dataset.idx = idx;
+          btn.style.cssText = 'display:block;width:100%;text-align:left;padding:11px 14px;margin-bottom:8px;border:1.5px solid #e0e0d8;border-radius:10px;background:white;font-size:14px;cursor:pointer';
+          btn.textContent = (idx + 1) + '. ' + txt;
+          btn.addEventListener('click', function() {
+            document.querySelectorAll('.choice-btn').forEach(function(b) {
+              b.style.background = 'white'; b.style.borderColor = '#e0e0d8'; b.style.color = '#2c2c2a';
+            });
+            btn.style.background = '#E1F5EE'; btn.style.borderColor = '#1D9E75'; btn.style.color = '#0F6E56';
+          });
+          cl.appendChild(btn);
+        });
+      }
+
+      var btnLabel = (mType === 'none' || (!hasAnswer && mType === 'text')) ? '✅ 방문 완료' : '확인';
+      document.getElementById('check-answer-btn').textContent = btnLabel;
 
       // 사진 인증 섹션 초기화
       document.getElementById('mission-photo-wrap').style.display = 'block';
@@ -1164,12 +1206,39 @@
       document.getElementById('mission-overlay').style.display = 'flex';
     }
 
+    // ── OX 버튼 이벤트
+    ['o','x'].forEach(function(v) {
+      document.getElementById('ox-btn-' + v).addEventListener('click', function() {
+        document.querySelectorAll('.ox-btn').forEach(function(b) {
+          b.style.background = 'white'; b.style.borderColor = '#e0e0d8';
+        });
+        this.style.background = '#E1F5EE'; this.style.borderColor = '#1D9E75';
+      });
+    });
+
     // ── 정답 확인 ─────────────────────────────────────────
     function checkAnswer() {
-      var input = document.getElementById('mission-input').value.trim();
       var cp    = checkpoints[activeCPIndex];
-      var hasAnswer = cp.answer && cp.answer.trim() !== '';
-      if (!hasAnswer || input === cp.answer) {
+      var mType = cp.missionType || 'text';
+      var correct = false;
+
+      if (mType === 'none') {
+        correct = true;
+      } else if (mType === 'text') {
+        var input = document.getElementById('mission-input').value.trim();
+        var hasAnswer = cp.answer && cp.answer.trim() !== '';
+        correct = !hasAnswer || input === cp.answer;
+      } else if (mType === 'ox') {
+        var selected = document.querySelector('.ox-btn[style*="#E1F5EE"]');
+        if (!selected) { document.getElementById('mission-error').style.display = 'block'; return; }
+        correct = (selected.dataset.val === cp.answer);
+      } else if (mType === 'choice') {
+        var selChoice = document.querySelector('.choice-btn[style*="#E1F5EE"]');
+        if (!selChoice) { document.getElementById('mission-error').style.display = 'block'; return; }
+        correct = (selChoice.dataset.idx === cp.answer);
+      }
+
+      if (correct) {
         completedCPs.add(activeCPIndex);
         recordCPComplete(activeCPIndex);
         document.getElementById('mission-overlay').style.display = 'none';

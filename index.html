@@ -919,7 +919,7 @@
         completedCPs: [],
         location: null,
         status: 'in-progress'
-      }).catch(function(err) {
+      }, { merge: true }).catch(function(err) {
         console.error('출발 기록 오류:', err);
       });
     }

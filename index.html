@@ -331,6 +331,17 @@
     </div>
   </div>
 
+  <!-- 출발/도착 인증 오버레이 -->
+  <div id="verify-overlay" class="overlay" style="display:none">
+    <div class="overlay-box" style="text-align:center">
+      <div style="font-size:52px;margin-bottom:10px" id="verify-icon">🚩</div>
+      <div class="success-title" id="verify-title">출발 지점</div>
+      <p id="verify-desc" style="font-size:14px;color:#5f5e5a;margin:10px 0 20px;line-height:1.6"></p>
+      <button class="btn-green" id="verify-confirm-btn">인증하기</button>
+      <button class="btn-gray" id="verify-cancel-btn">닫기</button>
+    </div>
+  </div>
+
   <!-- GPS 알림 -->
   <div id="gps-alert"></div>
 
@@ -606,6 +617,53 @@
     var startEndSame = startCP && endCP &&
       Math.abs(startCP.lat - endCP.lat) < 0.00005 &&
       Math.abs(startCP.lng - endCP.lng) < 0.00005;
+
+    // ── 출발/도착 인증 오버레이 ───────────────────────────
+    var _verifyType = null; // 'start' | 'end'
+    function showVerifyOverlay(type, alreadyDone) {
+      _verifyType = type;
+      var isStart = (type === 'start');
+      document.getElementById('verify-icon').textContent  = isStart ? '🚩' : '🏁';
+      document.getElementById('verify-title').textContent = isStart ? '출발 지점' : '도착 지점';
+      var confirmBtn = document.getElementById('verify-confirm-btn');
+      if (alreadyDone) {
+        document.getElementById('verify-desc').textContent = isStart ? '출발 인증이 완료되었습니다.' : '완주 인증이 완료되었습니다. 수고하셨어요!';
+        confirmBtn.style.display = 'none';
+      } else {
+        document.getElementById('verify-desc').textContent = isStart
+          ? 'GPS 반경 안에 있습니다.\n아래 버튼을 눌러 출발을 인증하세요!'
+          : 'GPS 반경 안에 있습니다.\n아래 버튼을 눌러 도착을 인증하세요!';
+        confirmBtn.style.display = 'block';
+      }
+      document.getElementById('verify-overlay').style.display = 'flex';
+    }
+
+    document.getElementById('verify-confirm-btn').addEventListener('click', function() {
+      document.getElementById('verify-overlay').style.display = 'none';
+      if (_verifyType === 'start' && !started) {
+        var si = checkpoints.findIndex(function(c) { return c.type === 'start'; });
+        started = true;
+        if (si !== -1) completedCPs.add(si);
+        startTimer();
+        recordStart();
+        updateMarkers();
+        renderCPList();
+        playAlert('start');
+        showGpsAlert('🚀 출발 인증 완료! 타이머 시작!');
+      } else if (_verifyType === 'end' && !ended) {
+        var ei2 = checkpoints.findIndex(function(c) { return c.type === 'end'; });
+        ended = true;
+        if (ei2 !== -1) completedCPs.add(ei2);
+        stopTimer();
+        recordFinish();
+        updateMarkers();
+        renderCPList();
+        showSuccessEnd();
+      }
+    });
+    document.getElementById('verify-cancel-btn').addEventListener('click', function() {
+      document.getElementById('verify-overlay').style.display = 'none';
+    });
 
     // ── 이벤트 연결 ──────────────────────────────────────
     document.getElementById('login-btn').addEventListener('click', login);
@@ -1028,16 +1086,9 @@
       var cp = checkpoints[i];
       if (cp.type === 'start') {
         if (started) {
-          showGpsAlert('✅ 출발 인증 완료!');
+          showVerifyOverlay('start', true);
         } else if (nearStart) {
-          // 반경 내 → 수동 인증 실행
-          started = true;
-          completedCPs.add(i);
-          startTimer();
-          recordStart();
-          updateMarkers();
-          renderCPList();
-          showGpsAlert('🚀 출발 인증 완료! 타이머 시작!');
+          showVerifyOverlay('start', false);
         } else {
           showGpsAlert('📍 출발 지점 30m 반경 안으로 이동해주세요');
         }
@@ -1045,30 +1096,22 @@
       }
       if (cp.type === 'end') {
         if (ended) {
-          showGpsAlert('🏆 도착 인증 완료!');
-        } else if (!started) {
-          showGpsAlert('먼저 출발 인증을 해주세요');
+          showVerifyOverlay('end', true);
+          return;
+        }
+        if (!started) { showGpsAlert('먼저 출발 인증을 해주세요'); return; }
+        var allDone = checkpoints.every(function(c, idx) {
+          return c.type !== 'normal' || completedCPs.has(idx);
+        });
+        if (!allDone) {
+          var left = checkpoints.filter(function(c, idx) {
+            return c.type === 'normal' && !completedCPs.has(idx);
+          }).length;
+          showGpsAlert('⚠️ 미션 ' + left + '개를 먼저 완료해야 합니다!');
+        } else if (nearEnd) {
+          showVerifyOverlay('end', false);
         } else {
-          var allDone = checkpoints.every(function(c, idx) {
-            return c.type !== 'normal' || completedCPs.has(idx);
-          });
-          if (!allDone) {
-            var left = checkpoints.filter(function(c, idx) {
-              return c.type === 'normal' && !completedCPs.has(idx);
-            }).length;
-            showGpsAlert('⚠️ 미션 ' + left + '개를 먼저 완료해야 합니다!');
-          } else if (nearEnd) {
-            // 반경 내 + 모든 미션 완료 → 수동 인증
-            ended = true;
-            completedCPs.add(i);
-            stopTimer();
-            recordFinish();
-            updateMarkers();
-            renderCPList();
-            showSuccessEnd();
-          } else {
-            showGpsAlert('🏁 도착 지점 30m 반경 안으로 이동해주세요');
-          }
+          showGpsAlert('🏁 도착 지점 30m 반경 안으로 이동해주세요');
         }
         return;
       }

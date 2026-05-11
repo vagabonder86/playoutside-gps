@@ -610,6 +610,7 @@
         });
         totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
         document.getElementById('score-total').textContent = totalNormalCPs;
+        recomputeStartEndSame(); // 새 프로그램의 출발/도착 일치 여부 재계산
       }
 
       // 선택 화면 닫고 로그인 화면 표시
@@ -629,12 +630,16 @@
     // 시작
     loadPublishedPrograms();
 
-    // ── 출발·도착 같은 위치 여부 ─────────────────────────
-    var startCP = checkpoints.find(function(c) { return c.type === 'start'; });
-    var endCP   = checkpoints.find(function(c) { return c.type === 'end'; });
-    var startEndSame = startCP && endCP &&
-      Math.abs(startCP.lat - endCP.lat) < 0.00005 &&
-      Math.abs(startCP.lng - endCP.lng) < 0.00005;
+    // ── 출발·도착 같은 위치 여부 (프로그램 선택 후 갱신해야 함) ──
+    var startEndSame = false;
+    function recomputeStartEndSame() {
+      var s = checkpoints.find(function(c) { return c.type === 'start'; });
+      var e = checkpoints.find(function(c) { return c.type === 'end'; });
+      startEndSame = !!(s && e &&
+        Math.abs(s.lat - e.lat) < 0.00005 &&
+        Math.abs(s.lng - e.lng) < 0.00005);
+    }
+    recomputeStartEndSame();
 
     // ── 출발/도착 인증 오버레이 ───────────────────────────
     var _verifyType = null; // 'start' | 'end'

@@ -728,6 +728,36 @@
     }
 
     // ── 로그인 ────────────────────────────────────────────
+    // ── 오리엔티어링 랜덤: CP 순서 셔플 (start/end 고정, 일반 CP만 재배치) ─
+    function applyOrienteeringOrder(savedOrder) {
+      var startCP = checkpoints.find(function(c) { return c.type === 'start'; });
+      var endCP   = checkpoints.find(function(c) { return c.type === 'end'; });
+      var normals = checkpoints.filter(function(c) { return c.type === 'normal'; });
+      if (normals.length === 0) return null;
+
+      var ordered;
+      if (savedOrder && savedOrder.length === normals.length) {
+        ordered = savedOrder.map(function(id) {
+          return normals.find(function(n) { return n.id === id; });
+        }).filter(Boolean);
+        if (ordered.length !== normals.length) ordered = normals.slice();
+      } else {
+        ordered = normals.slice();
+        for (var i = ordered.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = ordered[i]; ordered[i] = ordered[j]; ordered[j] = tmp;
+        }
+      }
+
+      var newArr = [];
+      if (startCP) newArr.push(startCP);
+      newArr = newArr.concat(ordered);
+      if (endCP) newArr.push(endCP);
+      checkpoints = newArr;
+
+      return ordered.map(function(c) { return c.id; });
+    }
+
     function login() {
       var name  = document.getElementById('input-name').value.trim();
       var phone = document.getElementById('input-phone').value.trim();
@@ -753,6 +783,19 @@
         // 기록 화면 헤더 업데이트
         document.getElementById('rec-prog-name').textContent = currentProgName;
         document.getElementById('rec-user-info').textContent = name + '님 · ' + phone;
+
+        // 오리엔티어링 랜덤: 참가자별 CP 순서 결정 (start/end 고정, 일반 CP만 셔플)
+        var isOriRandom = currentProgMode === 'orienteering'
+                       && currentModeSettings && currentModeSettings.start === 'random';
+        if (isOriRandom) {
+          var savedOrder = (existingData && existingData.cpOrder) ? existingData.cpOrder : null;
+          var newOrder = applyOrienteeringOrder(savedOrder);
+          if (newOrder && !savedOrder && userRef) {
+            userRef.set({ cpOrder: newOrder }, { merge: true }).catch(function(e) {
+              console.warn('CP 순서 저장 실패:', e);
+            });
+          }
+        }
 
         if (existingData && (existingData.status === 'in-progress' || existingData.status === 'finished')) {
           // ── 기존 진행상황 복원 ──────────────────────────

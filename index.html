@@ -17,228 +17,320 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: #f5f5f0; color: #2c2c2a; }
-    header { background: #1D9E75; color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
-    header h1 { font-size: 17px; font-weight: 500; }
-    header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-    .timer-bar { background: #085041; color: white; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .timer-bar .t-label { opacity: 0.7; font-size: 11px; }
-    .timer-bar .t-value { font-weight: 500; font-size: 14px; }
+    body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: #EEF9F4; color: #1a1a18; }
+
+    /* ── 헤더 ─────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(120deg, #059669 0%, #10B981 100%);
+      color: white; padding: 14px 20px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+    }
+    header h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.03em; }
+    header p  { font-size: 12px; opacity: 0.82; margin-top: 2px; font-weight: 500; }
+
+    /* ── 타이머 바 ──────────────────────────────────────────── */
+    .timer-bar {
+      background: #064E3B; color: white;
+      padding: 7px 20px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .timer-bar .t-label { opacity: 0.55; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; }
+    .timer-bar .t-value { font-weight: 800; font-size: 14px; }
+
+    /* ── 화면 ────────────────────────────────────────────────── */
     .screen { display: none; }
     .screen.active { display: block; }
     #map { width: 100%; height: calc(100vh - 152px); }
 
-    /* ── 하단 컨트롤 바 ─────────────────────────────────── */
+    /* ── 하단 컨트롤 바 ─────────────────────────────────────── */
     .bottom-bar {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 600;
       display: flex; align-items: center;
-      background: rgba(255,255,255,0.96);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-top: 0.5px solid #e8e8e4;
-      height: 52px;
-      padding: 0 16px;
+      background: rgba(255,255,255,0.97);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid #D1FAE5;
+      height: 54px; padding: 0 14px;
       padding-bottom: env(safe-area-inset-bottom, 0);
       gap: 8px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
     }
-    /* 왼쪽: 지도 타입 세그먼트 */
     .bb-segment {
-      display: flex; background: #f0f0ec; border-radius: 8px;
+      display: flex; background: #D1FAE5; border-radius: 10px;
       padding: 3px; gap: 2px; flex-shrink: 0;
     }
     .bb-seg-btn {
-      padding: 5px 13px; border-radius: 6px; border: none; background: none;
-      font-size: 12px; font-weight: 500; color: #888; cursor: pointer;
+      padding: 5px 12px; border-radius: 7px; border: none; background: none;
+      font-size: 12px; font-weight: 700; color: #6B7280; cursor: pointer;
       -webkit-tap-highlight-color: transparent; transition: all .15s;
     }
-    .bb-seg-btn.active {
-      background: white; color: #1D9E75;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    /* 중앙: 기록 버튼 */
+    .bb-seg-btn.active { background: white; color: #059669; box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
     .bb-record-btn {
-      flex: 1; height: 34px; border: 0.5px solid #e0e0d8;
-      border-radius: 8px; background: none;
-      font-size: 12px; font-weight: 500; color: #555;
-      cursor: pointer; -webkit-tap-highlight-color: transparent;
-      transition: all .15s;
+      flex: 1; height: 36px; border: 1.5px solid #D1FAE5;
+      border-radius: 10px; background: none;
+      font-size: 12px; font-weight: 700; color: #6B7280;
+      cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all .15s;
     }
-    .bb-record-btn.active { border-color: #1D9E75; color: #1D9E75; background: #E1F5EE; }
-    .bb-record-btn:active { background: #f5f5f0; }
-    /* 오른쪽: 줌 버튼 */
-    .bb-zoom-group { display: flex; align-items: center; gap: 0; flex-shrink: 0; border: 0.5px solid #e0e0d8; border-radius: 8px; overflow: hidden; }
+    .bb-record-btn.active { border-color: #10B981; color: #059669; background: #ECFDF5; }
+    .bb-record-btn:active { background: #F0FDF4; }
+    .bb-zoom-group {
+      display: flex; align-items: center; gap: 0; flex-shrink: 0;
+      border: 1.5px solid #D1FAE5; border-radius: 10px; overflow: hidden;
+    }
     .bb-z {
-      width: 36px; height: 34px; border: none; background: white;
-      font-size: 20px; font-weight: 300; color: #444; cursor: pointer;
+      width: 36px; height: 36px; border: none; background: white;
+      font-size: 20px; font-weight: 300; color: #374151; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       -webkit-tap-highlight-color: transparent; line-height: 1;
     }
-    .bb-z:active { background: #f0f0ec; }
-    .bb-z-sep { width: 0.5px; height: 18px; background: #e0e0d8; flex-shrink: 0; }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 12px; border: 0.5px solid #e0e0d8; }
-    .card h2 { font-size: 15px; font-weight: 500; color: #1D9E75; margin-bottom: 10px; }
-    .card p { font-size: 13px; line-height: 1.7; color: #5f5e5a; }
-    /* ── 기록 화면 ──────────────────────────────────────── */
-    #screen-mission { background: #f5f5f0; }
+    .bb-z:active { background: #F0FDF4; }
+    .bb-z-sep { width: 1px; height: 18px; background: #D1FAE5; flex-shrink: 0; }
 
-    /* 상단 헤더 카드 */
+    /* ── 일반 카드 ──────────────────────────────────────────── */
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+    .card { background: white; border-radius: 16px; padding: 18px; margin-bottom: 12px; border: 1px solid #D1FAE5; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .card h2 { font-size: 15px; font-weight: 700; color: #059669; margin-bottom: 10px; }
+    .card p  { font-size: 13px; line-height: 1.7; color: #6B7280; }
+
+    /* ── 기록 화면 ──────────────────────────────────────────── */
+    #screen-mission { background: #EEF9F4; }
+
+    /* 헤더 배너 */
     .rec-header {
-      background: #085041; color: white;
-      padding: 20px 20px 28px;
+      background: linear-gradient(135deg, #064E3B 0%, #065F46 60%, #059669 100%);
+      color: white; padding: 22px 20px 38px;
       position: relative; overflow: hidden;
+    }
+    .rec-header::before {
+      content: ''; position: absolute; top: -50px; right: -50px;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: rgba(255,255,255,0.07);
     }
     .rec-header::after {
       content: ''; position: absolute;
       bottom: -30px; left: -20px; right: -20px;
-      height: 60px; background: #f5f5f0;
-      border-radius: 50% 50% 0 0 / 60px;
+      height: 64px; background: #EEF9F4;
+      border-radius: 50% 50% 0 0 / 64px;
     }
-    .rec-logo {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 16px;
-    }
-    .rec-logo-mark {
-      width: 44px; height: 44px; flex-shrink: 0;
-    }
+    .rec-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .rec-logo-mark { width: 40px; height: 40px; flex-shrink: 0; }
     .rec-logo-mark img { width: 100%; height: 100%; object-fit: contain; }
-    .rec-logo-text { font-size: 13px; font-weight: 600; opacity: 0.95; letter-spacing: -0.01em; }
-    .rec-logo-sub  { font-size: 11px; opacity: 0.55; margin-top: 1px; }
-    .rec-prog-name { font-size: 17px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.02em; }
-    .rec-user-info { font-size: 12px; opacity: 0.6; }
+    .rec-logo-text { font-size: 13px; font-weight: 700; opacity: 0.95; }
+    .rec-logo-sub  { font-size: 11px; opacity: 0.5; margin-top: 1px; }
+    .rec-prog-name { font-size: 20px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.03em; }
+    .rec-user-info { font-size: 12px; opacity: 0.65; font-weight: 500; }
 
     /* 진행 요약 카드 */
     .rec-summary {
-      background: white; border-radius: 16px;
-      margin: 0 16px; padding: 18px 20px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      background: white; border-radius: 20px;
+      margin: 0 16px; padding: 20px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.09);
       position: relative; z-index: 1;
+      border: 1px solid #D1FAE5;
     }
-    .rec-summary-row { display: flex; gap: 0; }
+    .rec-summary-row { display: flex; }
     .rec-summary-stat { flex: 1; text-align: center; }
-    .rec-summary-stat + .rec-summary-stat { border-left: 0.5px solid #f0efe8; }
-    .rec-summary-val { font-size: 24px; font-weight: 700; color: #085041; line-height: 1; }
-    .rec-summary-lbl { font-size: 11px; color: #aaa; margin-top: 4px; }
+    .rec-summary-stat + .rec-summary-stat { border-left: 1px solid #ECFDF5; }
+    .rec-summary-val { font-size: 28px; font-weight: 800; color: #059669; line-height: 1; letter-spacing: -0.03em; }
+    .rec-summary-lbl { font-size: 11px; color: #9CA3AF; margin-top: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 
     /* 진행 바 */
-    .rec-prog-bar { height: 4px; background: #f0efe8; border-radius: 2px; margin: 16px 0 0; overflow: hidden; }
-    .rec-prog-bar-fill { height: 100%; background: linear-gradient(90deg, #1D9E75, #5DCAA5); border-radius: 2px; transition: width .6s ease; width: 0%; }
-
-    /* CP 리스트 */
-    .rec-section { padding: 20px 16px 0; }
-    .rec-section-title { font-size: 11px; font-weight: 600; color: #aaa; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
-    .cp-item {
-      display: flex; align-items: center; gap: 12px;
-      background: white; border-radius: 12px;
-      padding: 13px 14px; margin-bottom: 8px;
-      cursor: pointer; border: 1px solid transparent;
-      transition: border-color .15s, box-shadow .15s;
+    .rec-prog-bar { height: 7px; background: #D1FAE5; border-radius: 4px; margin: 18px 0 0; overflow: hidden; }
+    .rec-prog-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10B981, #34D399);
+      border-radius: 4px;
+      transition: width .8s cubic-bezier(.2,.9,.3,1);
+      box-shadow: 0 0 10px rgba(52,211,153,0.5);
+      width: 0%;
     }
-    .cp-item:active { box-shadow: 0 0 0 3px rgba(29,158,117,0.12); border-color: #1D9E75; }
-    .cp-item.done { background: #f9fdf9; }
+
+    /* CP 섹션 */
+    .rec-section { padding: 20px 16px 0; }
+    .rec-section-title {
+      font-size: 11px; font-weight: 800; color: #9CA3AF;
+      letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 10px;
+    }
+
+    /* CP 카드 — 퀘스트 스타일 */
+    .cp-item {
+      display: flex; align-items: center; gap: 13px;
+      background: white; border-radius: 16px;
+      padding: 14px 16px; margin-bottom: 9px;
+      cursor: pointer;
+      border: 1.5px solid #E8F5EF;
+      transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .cp-item:active { transform: scale(0.97); box-shadow: 0 0 0 3px rgba(16,185,129,0.18); border-color: #10B981; }
+    .cp-item.done { background: #F0FDF4; border-color: #A7F3D0; }
+
+    /* CP 배지 */
     .cp-badge {
-      width: 34px; height: 34px; border-radius: 10px;
-      background: #EEEDFE; color: #534AB7;
+      width: 40px; height: 40px; border-radius: 12px;
+      background: #DBEAFE; color: #2563EB;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      font-size: 13px; font-weight: 800; flex-shrink: 0;
     }
     .cp-info { flex: 1; min-width: 0; }
-    .cp-name { font-size: 13px; font-weight: 600; color: #1a1a18; }
-    .cp-desc { font-size: 11px; color: #aaa; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cp-status { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; flex-shrink: 0; }
-    .status-lock { background: #f0efe8; color: #bbb; }
-    .status-open { background: #E1F5EE; color: #0F6E56; }
-    .status-done { background: #085041; color: white; }
-    #gps-alert { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 800; background: #1D9E75; color: white; padding: 14px 24px; border-radius: 50px; font-size: 14px; font-weight: 500; display: none; text-align: center; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 999; }
-    .overlay-box { background: white; border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 360px; }
-    .overlay-box h2 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
-    .overlay-box p { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.6; }
-    .overlay-box label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
-    .overlay-box input { width: 100%; padding: 10px 12px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; }
-    .btn-green { width: 100%; padding: 13px; background: #1D9E75; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 4px; }
-    .btn-green:active { background: #0F6E56; }
-    .btn-gray { width: 100%; padding: 12px; background: white; color: #888; border: 0.5px solid #ddd; border-radius: 10px; font-size: 14px; cursor: pointer; margin-top: 8px; }
-    .success-icon { font-size: 48px; text-align: center; margin-bottom: 16px; }
-    .success-title { font-size: 20px; font-weight: 500; text-align: center; margin-bottom: 8px; color: #1D9E75; }
-    .success-sub { font-size: 13px; color: #888; text-align: center; margin-bottom: 24px; line-height: 1.6; }
-    #locate-btn { position: absolute; bottom: 24px; right: 16px; z-index: 500; width: 44px; height: 44px; background: white; border: 0.5px solid #ddd; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    /* 상단 map-type-btn 숨김 (하단 바로 대체) */
+    .cp-name { font-size: 14px; font-weight: 700; color: #111827; letter-spacing: -0.01em; }
+    .cp-desc { font-size: 11.5px; color: #9CA3AF; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+
+    /* 상태 뱃지 */
+    .cp-status { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+    .status-lock { background: #F3F4F6; color: #9CA3AF; }
+    .status-open { background: #FEF3C7; color: #B45309; }   /* 🎯 GO! 앰버 — 행동 필요 */
+    .status-done { background: #D1FAE5; color: #065F46; }    /* ✅ 완료 */
+
+    /* ── GPS 알림 토스트 ────────────────────────────────────── */
+    #gps-alert {
+      position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%);
+      z-index: 800;
+      background: linear-gradient(135deg, #059669, #10B981);
+      color: white; padding: 13px 24px; border-radius: 50px;
+      font-size: 14px; font-weight: 700;
+      display: none; text-align: center; white-space: nowrap;
+      box-shadow: 0 6px 20px rgba(16,185,129,0.45);
+    }
+
+    /* ── 오버레이 공통 ───────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; z-index: 999;
+    }
+    .overlay-box { background: white; border-radius: 24px; padding: 28px 24px; width: 100%; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .overlay-box h2 { font-size: 21px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.03em; }
+    .overlay-box p  { font-size: 13px; color: #6B7280; margin-bottom: 20px; line-height: 1.65; }
+    .overlay-box label { font-size: 12px; color: #6B7280; display: block; margin-bottom: 5px; font-weight: 700; letter-spacing: 0.02em; }
+    .overlay-box input {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid #E5E7EB; border-radius: 12px;
+      font-size: 16px; margin-bottom: 12px;
+      outline: none; transition: border-color .15s;
+      font-family: inherit;
+    }
+    .overlay-box input:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+
+    /* 주요 버튼 */
+    .btn-green {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #059669, #10B981);
+      color: white; border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 4px;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.35);
+      letter-spacing: -0.01em; transition: all .15s;
+      font-family: inherit;
+    }
+    .btn-green:active { transform: scale(0.98); background: #065F46; box-shadow: none; }
+    .btn-gray {
+      width: 100%; padding: 13px;
+      background: #F9FAFB; color: #6B7280;
+      border: 1.5px solid #E5E7EB; border-radius: 14px;
+      font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px;
+      transition: all .15s; font-family: inherit;
+    }
+    .btn-gray:active { background: #F3F4F6; }
+
+    /* 성공 오버레이 */
+    .success-icon  { font-size: 56px; text-align: center; margin-bottom: 12px; }
+    .success-title { font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 8px; color: #059669; letter-spacing: -0.02em; }
+    .success-sub   { font-size: 13px; color: #6B7280; text-align: center; margin-bottom: 24px; line-height: 1.65; }
+
+    /* 현재 위치 버튼 */
+    #locate-btn {
+      position: absolute; z-index: 500;
+      width: 46px; height: 46px;
+      background: white; border: 1.5px solid #D1FAE5;
+      border-radius: 50%; font-size: 20px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
     #map-type-btn { display: none !important; }
 
-    /* ── 하이킹 모드 오버레이 UI ──────────────────────── */
-
-    /* 상단 스탯 스트립 */
+    /* ── 하이킹 모드 오버레이 UI ─────────────────────────────── */
     #hike-top-overlay { display:none; position:absolute; top:0; left:0; right:0; z-index:300; pointer-events:none; }
     #hike-stats-bar {
-      background:rgba(8,60,48,0.88); backdrop-filter:blur(8px);
-      padding:0 16px;
-      height:40px; display:flex; align-items:center; gap:0;
-      pointer-events:auto;
+      background: rgba(6,46,37,0.9); backdrop-filter:blur(8px);
+      padding:0 16px; height:42px;
+      display:flex; align-items:center; gap:0; pointer-events:auto;
     }
     .h-stat { display:flex; align-items:baseline; gap:3px; flex:1; justify-content:center; }
-    .h-stat-v { font-size:16px; font-weight:700; color:white; }
-    .h-stat-l { font-size:10px; color:rgba(255,255,255,0.5); }
-    .h-divider { width:0.5px; height:16px; background:rgba(255,255,255,0.2); flex-shrink:0; }
-
-    /* 진행률 바 (3px 슬림) */
+    .h-stat-v { font-size:16px; font-weight:800; color:white; }
+    .h-stat-l { font-size:10px; color:rgba(255,255,255,0.5); font-weight:600; }
+    .h-divider { width:1px; height:16px; background:rgba(255,255,255,0.15); flex-shrink:0; }
     #hike-progress-wrap { pointer-events:auto; position:relative; }
-    .hike-pb { height:3px; background:rgba(255,255,255,0.15); overflow:hidden; }
-    .hike-pb-fill { height:100%; background:#5DCAA5; transition:width 0.8s ease; width:0%; }
+    .hike-pb { height:4px; background:rgba(255,255,255,0.15); overflow:hidden; }
+    .hike-pb-fill { height:100%; background: linear-gradient(90deg, #10B981, #34D399); transition:width 0.8s ease; width:0%; }
     .hike-pb-row {
       display:flex; justify-content:space-between; align-items:center;
       padding:3px 14px 4px;
-      background:rgba(8,60,48,0.72); backdrop-filter:blur(4px);
+      background:rgba(6,46,37,0.75); backdrop-filter:blur(4px);
     }
-    .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.65); }
-
-    .off-trail-warn { background:rgba(180,30,30,0.88) !important; }
-
-    /* 비상 연락처 버튼 — 숨김 */
+    .hike-pb-label { font-size:10px; color:rgba(255,255,255,0.65); font-weight:600; }
+    .off-trail-warn { background:rgba(180,30,30,0.9) !important; }
     #emergency-btn { display:none !important; }
-
-    /* 현재 위치 버튼 */
     #locate-btn { bottom: 76px; right: 14px; }
-    /* 미션 화면 하단 여백 (하단 바 겹침 방지) */
     #screen-mission .container { padding-bottom: 70px; }
+    .team-dot { background:#F97316; color:white; border-radius:20px; padding:3px 9px; font-size:11px; font-weight:700; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap; }
 
-    /* 팀원 마커 */
-    .team-dot { background:#FF6B35; color:white; border-radius:20px; padding:3px 9px; font-size:11px; font-weight:600; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap; }
-
-    /* ── 프로그램 선택 화면 ──────────────────────────────── */
+    /* ── 프로그램 선택 화면 ──────────────────────────────────── */
     #select-overlay {
       position: fixed; inset: 0; z-index: 1000;
-      background: linear-gradient(180deg, #085041 0%, #0a3a30 100%);
-      display: none; flex-direction: column; padding: 32px 16px 24px;
+      background: linear-gradient(160deg, #064E3B 0%, #065F46 45%, #059669 100%);
+      display: none; flex-direction: column; padding: 36px 16px 24px;
       overflow-y: auto;
     }
     #select-overlay.show { display: flex; }
-    .sel-header { text-align: center; margin-bottom: 28px; }
-    .sel-logo { width: 64px; height: 64px; margin: 0 auto 12px; background: white; border-radius: 16px; padding: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+    /* 배경 장식 원 */
+    #select-overlay::before {
+      content: ''; position: fixed;
+      top: -80px; right: -60px; width: 280px; height: 280px;
+      border-radius: 50%; background: rgba(52,211,153,0.12);
+      pointer-events: none;
+    }
+
+    .sel-header { text-align: center; margin-bottom: 32px; position: relative; }
+    .sel-logo {
+      width: 76px; height: 76px; margin: 0 auto 14px;
+      background: white; border-radius: 22px; padding: 10px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+    }
     .sel-logo img { width: 100%; height: 100%; object-fit: contain; }
-    .sel-title { font-size: 20px; font-weight: 600; color: white; margin-bottom: 4px; }
-    .sel-subtitle { font-size: 13px; color: rgba(255,255,255,0.6); }
-    .sel-section-title { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 4px 10px; }
-    .sel-list { display: flex; flex-direction: column; gap: 10px; }
+    .sel-title    { font-size: 24px; font-weight: 800; color: white; margin-bottom: 5px; letter-spacing: -0.03em; }
+    .sel-subtitle { font-size: 13px; color: rgba(255,255,255,0.65); font-weight: 500; }
+
+    .sel-section-title {
+      font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.5);
+      letter-spacing: 0.09em; text-transform: uppercase; margin: 0 4px 12px;
+    }
+    .sel-list { display: flex; flex-direction: column; gap: 12px; }
+
+    /* 프로그램 카드 */
     .sel-card {
-      background: white; border-radius: 14px; overflow: hidden;
-      cursor: pointer; transition: transform .12s, box-shadow .12s;
-      border: 2px solid transparent;
+      background: white; border-radius: 20px; overflow: hidden;
+      cursor: pointer; transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.16);
     }
-    .sel-card:active { transform: scale(0.98); }
+    .sel-card:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
     .sel-card-image { width: 100%; aspect-ratio: 16/9; object-fit: cover; object-position: top; display: block; }
-    .sel-card-body { padding: 14px 16px; }
-    .sel-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .sel-card-name { font-size: 15px; font-weight: 600; color: #1a1a18; }
-    .sel-card-mode { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
-    .sel-card-meta { font-size: 12px; color: #888; }
+    .sel-card-body  { padding: 16px 18px 18px; }
+    .sel-card-top   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .sel-card-name  { font-size: 16px; font-weight: 800; color: #111827; letter-spacing: -0.02em; }
+    .sel-card-mode  { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 700; }
+    .sel-card-meta  { font-size: 12px; color: #6B7280; font-weight: 500; }
     .sel-card-meta + .sel-card-meta { margin-top: 2px; }
+
+    /* 빈 목록 */
     .sel-empty {
-      text-align: center; padding: 40px 20px;
-      color: rgba(255,255,255,0.6); font-size: 13px;
-      background: rgba(255,255,255,0.05); border-radius: 14px;
+      text-align: center; padding: 48px 20px;
+      color: rgba(255,255,255,0.65); font-size: 13px; font-weight: 600;
+      background: rgba(255,255,255,0.08); border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
     }
-    .sel-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+    .sel-empty-icon { font-size: 44px; margin-bottom: 12px; opacity: 0.65; }
   </style>
 </head>
 <body>
@@ -248,9 +340,9 @@
     <div class="sel-header">
       <div class="sel-logo"><img src="logo.png" alt="플레이아웃사이드"></div>
       <div class="sel-title">플레이아웃사이드</div>
-      <div class="sel-subtitle">참여하실 프로그램을 선택해주세요</div>
+      <div class="sel-subtitle">🎯 참여할 어드벤처를 선택하세요!</div>
     </div>
-    <div class="sel-section-title">진행 중인 프로그램</div>
+    <div class="sel-section-title">🏃 지금 진행 중인 어드벤처</div>
     <div class="sel-list" id="sel-list">
       <div class="sel-empty">
         <div class="sel-empty-icon">⏳</div>
@@ -259,16 +351,165 @@
     </div>
   </div>
 
+  <!-- GPS 점검 오버레이 -->
+  <div id="gps-check-overlay" class="overlay" style="display:none;z-index:1500;background:rgba(8,80,65,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)">
+    <div class="gps-check-card">
+      <!-- 상단 아이콘 영역 -->
+      <div class="gps-icon-wrap" id="gps-icon-wrap">
+        <div class="gps-pulse"></div>
+        <div class="gps-pulse gps-pulse-2"></div>
+        <div class="gps-icon-circle" id="gps-icon-circle">
+          <span id="gps-check-icon">📍</span>
+        </div>
+      </div>
+      <!-- 텍스트 영역 -->
+      <div style="padding:0 24px 4px">
+        <h2 id="gps-check-title" class="gps-check-title">위치 권한 확인 중...</h2>
+        <p id="gps-check-desc" class="gps-check-desc">
+          잠시만 기다려주세요.<br>GPS 신호를 확인하고 있습니다.
+        </p>
+      </div>
+      <!-- OS 탭 -->
+      <div id="gps-os-tabs" style="display:none;padding:0 20px;margin-bottom:12px">
+        <div class="gps-tabs">
+          <button class="gps-tab active" data-os="ios">📱 iPhone</button>
+          <button class="gps-tab" data-os="android">🤖 Android</button>
+        </div>
+      </div>
+      <!-- 가이드 영역 -->
+      <div id="gps-check-guide" class="gps-guide" style="display:none"></div>
+      <!-- 버튼 영역 -->
+      <div class="gps-btns" id="gps-btns" style="display:none">
+        <button class="gps-btn-primary" id="gps-retry-btn">
+          <span style="font-size:15px">🔄</span> 다시 확인하기
+        </button>
+        <button class="gps-btn-ghost" id="gps-skip-btn">
+          그래도 계속하기 (제한 모드)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* ── GPS 점검 카드 ─────────────────────────────────── */
+    .gps-check-card {
+      background: white;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 380px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: gpsSlideUp .35s cubic-bezier(.2,.9,.3,1.2);
+    }
+    @keyframes gpsSlideUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .gps-icon-wrap {
+      position: relative;
+      width: 100%; height: 140px;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .gps-icon-wrap.fail {
+      background: linear-gradient(135deg, #F97316 0%, #C2410C 100%);
+    }
+    .gps-icon-wrap.ok {
+      background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+    }
+    .gps-pulse {
+      position: absolute; width: 80px; height: 80px;
+      border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 50%;
+      animation: gpsPulse 2s ease-out infinite;
+    }
+    .gps-pulse-2 { animation-delay: 1s; }
+    @keyframes gpsPulse {
+      0%   { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .gps-icon-wrap.fail .gps-pulse,
+    .gps-icon-wrap.ok .gps-pulse { display: none; }
+    .gps-icon-circle {
+      position: relative; z-index: 1;
+      width: 68px; height: 68px; border-radius: 50%;
+      background: rgba(255,255,255,0.95);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    }
+    .gps-check-title {
+      font-size: 19px; font-weight: 700; color: #1a1a18;
+      text-align: center; margin: 22px 0 8px; letter-spacing: -0.02em;
+    }
+    .gps-check-desc {
+      font-size: 13.5px; color: #6f6e6a;
+      text-align: center; line-height: 1.65; margin-bottom: 18px;
+    }
+    .gps-tabs {
+      display: flex; gap: 4px; background: #f0efe8;
+      border-radius: 10px; padding: 4px;
+    }
+    .gps-tab {
+      flex: 1; padding: 8px 10px; border: none; background: none;
+      font-size: 13px; font-weight: 600; color: #888; cursor: pointer;
+      border-radius: 7px; -webkit-tap-highlight-color: transparent;
+      transition: all .15s;
+    }
+    .gps-tab.active { background: white; color: #059669; box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
+    .gps-guide {
+      margin: 0 20px 16px;
+      background: #F0FDF4; border-radius: 14px;
+      padding: 16px 18px;
+      font-size: 13px; line-height: 1.75; color: #1a1a18;
+      border: 1px solid #D1FAE5;
+    }
+    .gps-guide ol { padding-left: 0; list-style: none; counter-reset: gps-step; }
+    .gps-guide ol li {
+      counter-increment: gps-step;
+      padding: 6px 0 6px 32px; position: relative;
+    }
+    .gps-guide ol li::before {
+      content: counter(gps-step);
+      position: absolute; left: 0; top: 6px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #10B981; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800;
+    }
+    .gps-guide b { color: #065F46; font-weight: 700; }
+    .gps-btns { padding: 0 20px 24px; display: flex; flex-direction: column; gap: 8px; }
+    .gps-btn-primary {
+      padding: 14px; border-radius: 14px; border: none;
+      background: linear-gradient(135deg, #059669, #10B981);
+      color: white; font-size: 15px; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+      transition: all .15s; font-family: inherit;
+    }
+    .gps-btn-primary:hover { background: #065F46; }
+    .gps-btn-primary:active { transform: scale(0.97); box-shadow: none; }
+    .gps-btn-ghost {
+      padding: 12px; border-radius: 12px; border: none; background: none;
+      font-size: 13px; color: #9CA3AF; cursor: pointer; font-weight: 500;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .gps-btn-ghost:hover { color: #374151; }
+  </style>
+
   <!-- 로그인 오버레이 -->
   <div id="login-overlay" class="overlay" style="display:none">
     <div class="overlay-box">
-      <h2>미션 시작하기</h2>
-      <p>이름과 전화번호 뒷자리를 입력해주세요</p>
+      <div style="font-size:40px;text-align:center;margin-bottom:10px">🗺️</div>
+      <h2 style="text-align:center">미션 시작!</h2>
+      <p style="text-align:center">이름과 전화번호 뒷자리를 입력하고<br>모험을 시작하세요 🚀</p>
       <label>이름</label>
       <input id="input-name" type="text" placeholder="홍길동">
       <label>전화번호 뒷자리 4자리</label>
       <input id="input-phone" type="text" placeholder="1234" maxlength="4" inputmode="numeric">
-      <button class="btn-green" id="login-btn">시작하기</button>
+      <button class="btn-green" id="login-btn">🚀 시작하기</button>
     </div>
   </div>
 
@@ -411,7 +652,7 @@
     <div class="rec-summary">
       <div class="rec-summary-row">
         <div class="rec-summary-stat">
-          <div class="rec-summary-val"><span id="score-current">0</span><span style="font-size:14px;color:#aaa;font-weight:400"> / </span><span id="score-total" style="font-size:16px;color:#aaa;font-weight:500">0</span></div>
+          <div class="rec-summary-val"><span id="score-current">0</span><span style="font-size:15px;color:#9CA3AF;font-weight:600"> / </span><span id="score-total" style="font-size:17px;color:#9CA3AF;font-weight:700">0</span></div>
           <div class="rec-summary-lbl">완료 CP</div>
         </div>
         <div class="rec-summary-stat">
@@ -428,12 +669,12 @@
 
     <!-- CP 목록 -->
     <div class="rec-section">
-      <div class="rec-section-title">체크포인트</div>
+      <div class="rec-section-title">📍 체크포인트</div>
       <div id="cp-list"></div>
     </div>
     <!-- 실시간 순위 -->
     <div class="rec-section" id="leaderboard-section" style="display:none">
-      <div class="rec-section-title">실시간 순위</div>
+      <div class="rec-section-title">🏆 실시간 순위</div>
       <div id="leaderboard-list"></div>
     </div>
     <div style="height:80px"></div>
@@ -482,12 +723,20 @@
     var timerInterval, startTime;
     var started = false;
     var ended   = false;
+    var visitOrderMap = {}; // 오리엔티어링 랜덤: cp index → 방문 순서 번호
     var isSatellite = false;
 
     var currentProgId = null;
     var currentProgName = '백련산 생태 탐험 2026';
     var currentProgMode = null;       // 운영 방식 (geocaching/orienteering/hiking)
     var currentModeSettings = {};     // 하이킹 세부 설정 (emergency 등)
+
+    // 순차 공개 모드 여부 (오리엔티어링 또는 지오캐싱+순차 공개 옵션)
+    function isSequential() {
+      if (currentProgMode === 'orienteering') return true;
+      if (currentProgMode === 'geocaching' && currentModeSettings && currentModeSettings.reveal === 'sequential') return true;
+      return false;
+    }
     var gpxRoute = [];                // 하이킹 GPX 경로 좌표 [{lat,lng},...]
     var gpxPolyline = null;           // 지도 폴리라인 인스턴스
     var userName = '';
@@ -611,6 +860,7 @@
         totalNormalCPs = checkpoints.filter(function(c) { return c.type === 'normal'; }).length;
         document.getElementById('score-total').textContent = totalNormalCPs;
         recomputeStartEndSame(); // 새 프로그램의 출발/도착 일치 여부 재계산
+        visitOrderMap = {}; // 새 프로그램 진입 시 이전 방문 순서 맵 초기화
       }
 
       // 선택 화면 닫고 로그인 화면 표시
@@ -765,8 +1015,149 @@
       if (endCP) newArr.push(endCP);
       checkpoints = newArr;
 
+      // 마커 렌더 전에 visitOrderMap 준비 (initMap이 renderCPList보다 먼저 호출됨)
+      visitOrderMap = {};
+      var vn = 0;
+      checkpoints.forEach(function(cp, idx) {
+        if (cp.type === 'normal') visitOrderMap[idx] = ++vn;
+      });
+
       return ordered.map(function(c) { return c.id; });
     }
+
+    // ── GPS 점검 (iOS / Android 공통) ─────────────────────
+    var gpsCheckPassed = false;
+    function detectPlatform() {
+      var ua = navigator.userAgent || '';
+      if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
+      if (/Android/i.test(ua)) return 'android';
+      return 'desktop';
+    }
+    function getGpsGuide(os) {
+      // os: 'ios' | 'android'
+      if (os === 'ios') {
+        return '<ol>' +
+          '<li><b>설정</b> 앱 열기</li>' +
+          '<li><b>개인정보 보호 및 보안</b> → <b>위치 서비스</b></li>' +
+          '<li>상단 <b>위치 서비스</b> 토글 켜기</li>' +
+          '<li>아래로 스크롤 → <b>Safari 웹사이트</b></li>' +
+          '<li><b>이 앱을 사용하는 동안 허용</b> 선택</li>' +
+          '<li>Safari로 돌아와 페이지 새로고침</li>' +
+          '</ol>';
+      }
+      return '<ol>' +
+        '<li><b>설정</b> → <b>위치</b> → 켜기</li>' +
+        '<li>브라우저 주소창 옆 <b>자물쇠 🔒</b> 탭</li>' +
+        '<li><b>권한</b> → <b>위치</b> → <b>허용</b> 선택</li>' +
+        '<li>페이지 새로고침</li>' +
+        '</ol>';
+    }
+    function getGpsHttpGuide() {
+      return '<div style="line-height:1.7"><b>⚠️ 보안 연결 필요</b><br>' +
+        'GPS는 <b>https://</b>로 시작하는 보안 주소에서만 동작합니다.<br>' +
+        '주소창을 확인하세요.</div>';
+    }
+    function getGpsUnsupportedGuide() {
+      return '<div style="line-height:1.7">이 브라우저는 GPS를 지원하지 않습니다.<br>' +
+        '<b>Chrome</b>, <b>Safari</b>, <b>삼성인터넷</b> 최신 버전을 사용해주세요.</div>';
+    }
+    var currentGpsTab = null;
+    function showGpsCheckUI(state, opts) {
+      opts = opts || {};
+      var iconWrap = document.getElementById('gps-icon-wrap');
+      var icon     = document.getElementById('gps-check-icon');
+      var title    = document.getElementById('gps-check-title');
+      var desc     = document.getElementById('gps-check-desc');
+      var guide    = document.getElementById('gps-check-guide');
+      var osTabs   = document.getElementById('gps-os-tabs');
+      var btns     = document.getElementById('gps-btns');
+
+      document.getElementById('gps-check-overlay').style.display = 'flex';
+      iconWrap.classList.remove('fail', 'ok');
+
+      if (state === 'checking') {
+        icon.textContent = '📍'; title.textContent = '위치 권한 확인 중...';
+        desc.innerHTML   = '잠시만 기다려주세요.<br>GPS 신호를 확인하고 있습니다.';
+        guide.style.display = 'none'; osTabs.style.display = 'none'; btns.style.display = 'none';
+      } else if (state === 'ok') {
+        iconWrap.classList.add('ok');
+        icon.textContent = '✅'; title.textContent = 'GPS 정상';
+        desc.textContent = '위치 권한이 확인되었습니다.';
+        guide.style.display = 'none'; osTabs.style.display = 'none'; btns.style.display = 'none';
+        setTimeout(function() {
+          document.getElementById('gps-check-overlay').style.display = 'none';
+        }, 700);
+      } else if (state === 'fail') {
+        iconWrap.classList.add('fail');
+        icon.textContent = '⚠️';
+        title.textContent = opts.title || 'GPS를 사용할 수 없어요';
+        desc.innerHTML    = opts.desc  || '아래 안내에 따라 위치 설정을 확인해주세요.';
+
+        // 단순 안내 (HTTPS, 미지원)
+        if (opts.staticGuideHtml) {
+          guide.innerHTML = opts.staticGuideHtml;
+          guide.style.display = 'block';
+          osTabs.style.display = 'none';
+        } else {
+          // OS 탭 + 단계별 가이드
+          osTabs.style.display = 'block';
+          var defaultOs = opts.platform === 'android' ? 'android' : 'ios';
+          setGpsTab(defaultOs);
+        }
+        btns.style.display = 'flex';
+      }
+    }
+    function setGpsTab(os) {
+      currentGpsTab = os;
+      document.querySelectorAll('.gps-tab').forEach(function(t) {
+        t.classList.toggle('active', t.dataset.os === os);
+      });
+      var guide = document.getElementById('gps-check-guide');
+      guide.innerHTML = getGpsGuide(os);
+      guide.style.display = 'block';
+    }
+    function checkGpsReadiness(callback) {
+      var platform = detectPlatform();
+      // 1) HTTPS 체크 (localhost는 예외)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        showGpsCheckUI('fail', { title: 'HTTPS 연결이 필요합니다', desc: 'GPS는 보안 연결에서만 동작합니다.', staticGuideHtml: getGpsHttpGuide() });
+        callback(false); return;
+      }
+      // 2) Geolocation API 지원 여부
+      if (!navigator.geolocation) {
+        showGpsCheckUI('fail', { title: 'GPS 미지원 브라우저', desc: '브라우저를 최신 버전으로 업데이트해주세요.', staticGuideHtml: getGpsUnsupportedGuide() });
+        callback(false); return;
+      }
+      showGpsCheckUI('checking');
+      // 3) 실제 위치 요청
+      navigator.geolocation.getCurrentPosition(function() {
+        gpsCheckPassed = true;
+        showGpsCheckUI('ok');
+        callback(true);
+      }, function(err) {
+        var reason = err.code === 1 ? 'denied' : err.code === 2 ? 'unavailable' : 'timeout';
+        var titleMap = { denied: '위치 권한이 거부되었어요', unavailable: '위치를 가져올 수 없어요', timeout: 'GPS 응답이 늦어요' };
+        var descMap  = {
+          denied: '아래 단계대로 권한을 허용해주세요.',
+          unavailable: '실내라면 <b>창가나 야외</b>로 이동해주세요.<br>또는 아래 안내를 확인해주세요.',
+          timeout: '실외로 이동 후 <b>다시 확인하기</b>를 눌러주세요.<br>설정도 함께 확인해보세요.'
+        };
+        showGpsCheckUI('fail', { title: titleMap[reason], desc: descMap[reason], platform: platform });
+        callback(false);
+      }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+    }
+    // 점검 버튼·탭 핸들러
+    document.addEventListener('DOMContentLoaded', function() {
+      var retryBtn = document.getElementById('gps-retry-btn');
+      var skipBtn  = document.getElementById('gps-skip-btn');
+      if (retryBtn) retryBtn.addEventListener('click', function() { checkGpsReadiness(function() {}); });
+      if (skipBtn)  skipBtn.addEventListener('click', function() {
+        document.getElementById('gps-check-overlay').style.display = 'none';
+      });
+      document.querySelectorAll('.gps-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() { setGpsTab(tab.dataset.os); });
+      });
+    });
 
     function login() {
       var name  = document.getElementById('input-name').value.trim();
@@ -777,6 +1168,39 @@
       userPhone = phone;
       userId    = name + '_' + phone;
 
+      var btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.textContent = '확인 중...';
+
+      // ── GPS 점검 후 진행 ─────────────────────────────────
+      if (!gpsCheckPassed) {
+        checkGpsReadiness(function(ok) {
+          if (ok) {
+            // 점검 통과 → 본 로그인 절차 계속
+            doLoginAfterGpsCheck();
+          } else {
+            // 사용자가 "그래도 계속하기" 누르면 진행 가능하도록
+            btn.disabled = false;
+            btn.textContent = '시작하기';
+            // skip 버튼 클릭 시 재시도할 수 있게 핸들러 임시 부착
+            var skipBtn = document.getElementById('gps-skip-btn');
+            var onSkip = function() {
+              skipBtn.removeEventListener('click', onSkip);
+              gpsCheckPassed = true; // 사용자가 무시 선택 → 통과로 표시
+              btn.disabled = true; btn.textContent = '확인 중...';
+              doLoginAfterGpsCheck();
+            };
+            skipBtn.addEventListener('click', onSkip);
+          }
+        });
+        return;
+      }
+      doLoginAfterGpsCheck();
+    }
+
+    function doLoginAfterGpsCheck() {
+      var name  = userName;
+      var phone = userPhone;
       var btn = document.getElementById('login-btn');
       btn.disabled = true;
       btn.textContent = '확인 중...';
@@ -851,6 +1275,7 @@
           }
 
           initMap();
+          updateMarkers();
           renderCPList();
           startGPSWatch();
           subscribeLeaderboard();
@@ -865,6 +1290,7 @@
           // ── 신규 참가자 ─────────────────────────────────
           recordLogin(); // 로그인 즉시 '대기중'으로 등록
           initMap();
+          updateMarkers();
           renderCPList();
           startGPSWatch();
           subscribeLeaderboard();
@@ -946,14 +1372,17 @@
         return;
       }
 
-      // 오리엔티어링 순차 진행 체크
-      if (currentProgMode === 'orienteering') {
+      // 순차 공개 모드: 순차 진행 체크
+      if (isSequential()) {
         var nextOri = -1;
         for (var oi = 0; oi < checkpoints.length; oi++) {
           if (checkpoints[oi].type === 'normal' && !completedCPs.has(oi)) { nextOri = oi; break; }
         }
         if (nextOri !== -1 && nextOri !== idx) {
-          showGpsAlert('순서대로 진행! 다음 CP: ' + checkpoints[nextOri].name);
+          var orderNumsA = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+          var vnA = visitOrderMap[nextOri];
+          var prefixA = vnA ? (orderNumsA[vnA - 1] || vnA + '번') + ' ' : '';
+          showGpsAlert('순서대로 진행! 다음 CP: ' + prefixA + checkpoints[nextOri].name);
           return;
         }
       }
@@ -1111,8 +1540,10 @@
       var done = completedCPs.has(i);
       var bg   = done ? '#1D9E75' : cp.color;
       var size = (cp.type === 'start' || cp.type === 'end') ? '38px' : '32px';
-      var label = done ? '✓' : cp.id;
-      var fontSize = '13px';
+      var orderNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+      var visitNum = visitOrderMap[i];
+      var label = done ? '✓' : (visitNum ? orderNums[visitNum - 1] || visitNum + '번' : cp.id);
+      var fontSize = visitNum && !done ? '15px' : '13px';
       // 출발·도착 마커: 텍스트 레이블 보정
       if (!done && cp.type === 'start') { label = 'S'; fontSize = '14px'; }
       if (!done && cp.type === 'end')   { label = 'F'; fontSize = '14px'; }
@@ -1123,7 +1554,20 @@
     }
 
     function updateMarkers() {
-      checkpoints.forEach(function(cp, i) { markers[i].setIcon(makeIcon(cp, i)); });
+      // 순차 공개 모드: 다음 목표 CP 인덱스 계산
+      var nextSeqIdx = -1;
+      if (isSequential()) {
+        for (var si = 0; si < checkpoints.length; si++) {
+          if (checkpoints[si].type === 'normal' && !completedCPs.has(si)) { nextSeqIdx = si; break; }
+        }
+      }
+      checkpoints.forEach(function(cp, i) {
+        var done = completedCPs.has(i);
+        // 순차 공개: 잠긴 CP(다음 목표가 아닌 미완료 일반 CP)는 마커 숨기기
+        var isLocked = isSequential() && cp.type === 'normal' && !done && nextSeqIdx !== -1 && i !== nextSeqIdx;
+        markers[i].setMap(isLocked ? null : map);
+        if (!isLocked) markers[i].setIcon(makeIcon(cp, i));
+      });
     }
 
     // ── GPS 감지 ──────────────────────────────────────────
@@ -1201,8 +1645,17 @@
 
         // 일반 CP 반경 감지
         if (started && !ended) {
+          // 순차 공개 모드: 다음 목표 CP 인덱스만 감지
+          var nextSeqForGps = -1;
+          if (isSequential()) {
+            for (var gsi = 0; gsi < checkpoints.length; gsi++) {
+              if (checkpoints[gsi].type === 'normal' && !completedCPs.has(gsi)) { nextSeqForGps = gsi; break; }
+            }
+          }
           checkpoints.forEach(function(cp, i) {
             if (cp.type !== 'normal' || completedCPs.has(i) || nearbyAlerted.has(i)) return;
+            // 순차 공개: 다음 목표 CP가 아닌 CP는 GPS 감지 스킵
+            if (isSequential() && nextSeqForGps !== -1 && i !== nextSeqForGps) return;
             if (getDistance(lat, lng, cp.lat, cp.lng) <= (cp.radius || modeRadius)) {
               nearbyAlerted.add(i);
               gpsVerifiedCPs.add(i); // GPS 방문 확인
@@ -1278,19 +1731,25 @@
         showGpsAlert('📍 ' + cp.name + ' 에 직접 방문해야 미션을 시작할 수 있습니다');
         return;
       }
-      // 오리엔티어링: 순차 진행 체크
-      if (currentProgMode === 'orienteering') {
+      // 순차 공개 모드: 순차 진행 체크
+      if (isSequential()) {
         var nextOri = -1;
         for (var oi = 0; oi < checkpoints.length; oi++) {
           if (checkpoints[oi].type === 'normal' && !completedCPs.has(oi)) { nextOri = oi; break; }
         }
         if (nextOri !== -1 && nextOri !== i) {
-          showGpsAlert('순서대로! 다음 CP: ' + checkpoints[nextOri].name);
+          var orderNumsB = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+          var vnB = visitOrderMap[nextOri];
+          var prefixB = vnB ? (orderNumsB[vnB - 1] || vnB + '번') + ' ' : '';
+          showGpsAlert('순서대로! 다음 CP: ' + prefixB + checkpoints[nextOri].name);
           return;
         }
       }
       activeCPIndex = i;
-      document.getElementById('mission-title').textContent = cp.name + ' 미션';
+      var orderNumsM = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+      var vnM = visitOrderMap[i];
+      var titlePrefix = vnM ? (orderNumsM[vnM - 1] || vnM + '번') + ' ' : '';
+      document.getElementById('mission-title').textContent = titlePrefix + cp.name + ' 미션';
       document.getElementById('mission-desc').textContent  = cp.mission || '이 지점을 방문했습니다.';
       document.getElementById('mission-error').style.display = 'none';
 
@@ -1472,6 +1931,26 @@
     function renderCPList() {
       var list = document.getElementById('cp-list');
       list.innerHTML = '';
+
+      // 오리엔티어링 랜덤: 참가자별 방문 순서 맵 생성 (전역 업데이트)
+      var isOriRandom = currentProgMode === 'orienteering'
+                     && currentModeSettings && currentModeSettings.start === 'random';
+      visitOrderMap = {};
+      if (isOriRandom) {
+        var vn = 0;
+        checkpoints.forEach(function(cp, idx) {
+          if (cp.type === 'normal') visitOrderMap[idx] = ++vn;
+        });
+      }
+
+      // 오리엔티어링 랜덤 안내 헤더
+      if (isOriRandom) {
+        var header = document.createElement('div');
+        header.style.cssText = 'font-size:11px;color:#534AB7;background:#EEEDFE;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-weight:500;line-height:1.5';
+        header.textContent = '📋 아래 순서대로 CP를 방문하세요. 각 CP의 위치는 지도에서 확인하세요.';
+        list.appendChild(header);
+      }
+
       checkpoints.forEach(function(cp, i) {
         var done = completedCPs.has(i);
         var statusClass, statusText, desc, badgeLabel, badgeStyle;
@@ -1501,9 +1980,9 @@
         } else {
           var gpsOk = gpsVerifiedCPs.has(i);
 
-          // 오리엔티어링: 현재 순서가 아닌 CP는 잠금
+          // 순차 공개 모드: 현재 순서가 아닌 CP는 잠금
           var oriLocked = false;
-          if (currentProgMode === 'orienteering' && !done) {
+          if (isSequential() && !done) {
             var nextOri = -1;
             for (var oi2 = 0; oi2 < checkpoints.length; oi2++) {
               if (checkpoints[oi2].type === 'normal' && !completedCPs.has(oi2)) { nextOri = oi2; break; }
@@ -1512,10 +1991,17 @@
           }
 
           statusClass = done ? 'status-done' : (oriLocked ? 'status-lock' : (gpsOk ? 'status-open' : 'status-lock'));
-          statusText  = done ? '완료' : (oriLocked ? '순서 대기' : (gpsOk ? '미션 대기' : 'GPS 미인증'));
-          desc        = done ? '미션 완료' : (oriLocked ? '이전 CP를 먼저 완료하세요' : (gpsOk ? '탭해서 미션 확인' : '해당 지점 30m 반경에 가까이 가세요'));
-          badgeLabel  = done ? '✓' : cp.id;
+          statusText  = done ? '완료' : (oriLocked ? '🔒 잠금' : (gpsOk ? '미션 대기' : '이동 중'));
+          desc        = done ? '미션 완료' : (oriLocked ? '이전 CP 완료 후 위치가 공개됩니다' : (gpsOk ? '탭해서 미션 확인' : '지도에서 위치 확인 후 방문하세요'));
           badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : (oriLocked ? 'background:#f0efe8;color:#aaa' : (gpsOk ? '' : 'background:#f0efe8;color:#aaa'));
+          if (isOriRandom && visitOrderMap[i]) {
+            var orderNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
+            var orderNum = visitOrderMap[i];
+            badgeLabel = done ? '✓' : (orderNums[orderNum - 1] || orderNum + '번');
+            if (!done) desc = cp.id + ' · ' + desc;
+          } else {
+            badgeLabel = done ? '✓' : cp.id;
+          }
         }
 
         var item = document.createElement('div');
@@ -1843,8 +2329,16 @@
     function showTab(name) {
       document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
       document.getElementById('screen-' + name).classList.add('active');
-      // 기록 버튼 활성 상태
-      document.getElementById('bb-record').classList.toggle('active', name === 'mission');
+      var recordBtn = document.getElementById('bb-record');
+      if (name === 'mission') {
+        recordBtn.classList.add('active');
+        recordBtn.textContent = '지도';
+      } else {
+        recordBtn.classList.remove('active');
+        recordBtn.textContent = '기록';
+        // 지도가 다시 표시될 때 크기 재계산
+        if (map) setTimeout(function() { naver.maps.Event.trigger(map, 'resize'); }, 50);
+      }
     }
 
     // ── 지도 타입 (하단 바) ────────────────────────────────
@@ -1883,7 +2377,10 @@
     // 하단 바 이벤트 (HTML 렌더링 후 연결)
     document.getElementById('bb-normal').addEventListener('click', function() { setMapType('normal'); showTab('map'); });
     document.getElementById('bb-satellite').addEventListener('click', function() { setMapType('satellite'); showTab('map'); });
-    document.getElementById('bb-record').addEventListener('click', function() { showTab('mission'); });
+    document.getElementById('bb-record').addEventListener('click', function() {
+      var onMission = document.getElementById('screen-mission').classList.contains('active');
+      showTab(onMission ? 'map' : 'mission');
+    });
     document.getElementById('bb-zoom-in').addEventListener('click', function() { if (map) map.setZoom(map.getZoom() + 1); });
     document.getElementById('bb-zoom-out').addEventListener('click', function() { if (map) map.setZoom(map.getZoom() - 1); });
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>플레이아웃사이드 관리자</title>
-  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28"></script>
+  <script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=6ghq1ghc28&submodules=geocoder"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -134,6 +134,7 @@
       margin-top: 12px; min-height: 20px;
     }
 
+    @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.4; transform: scale(0.85); }
@@ -263,12 +264,23 @@
 
       <!-- 프로그램 목록 -->
       <div class="screen active" id="screen-programs">
+        <div id="prog-loading" style="display:none;text-align:center;padding:60px 20px">
+          <div style="font-size:32px;margin-bottom:12px;animation:pulse 1.2s infinite">📋</div>
+          <div style="font-size:14px;color:#888">프로그램 목록을 불러오는 중...</div>
+        </div>
         <div class="prog-grid" id="prog-grid"></div>
         <div id="empty-state" style="display:none;text-align:center;padding:60px 20px">
           <div style="font-size:48px;margin-bottom:16px">📋</div>
           <div style="font-size:15px;margin-bottom:8px;color:#888">프로그램이 없습니다</div>
           <button class="btn btn-primary" id="empty-new-btn" style="margin-top:8px">
             <i class="ti ti-plus"></i> 새 프로그램 만들기
+          </button>
+        </div>
+        <div id="load-error-state" style="display:none;text-align:center;padding:60px 20px">
+          <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+          <div style="font-size:14px;color:#888;margin-bottom:16px" id="load-error-msg">프로그램 목록을 불러오지 못했습니다.</div>
+          <button class="btn btn-primary" id="retry-load-btn">
+            <i class="ti ti-refresh"></i> 다시 시도
           </button>
         </div>
       </div>
@@ -335,7 +347,7 @@
               <div class="mode-option selected" data-mode="geocaching">
                 <div class="mode-option-icon">🗺️</div>
                 <div class="mode-option-name">지오캐싱</div>
-                <div class="mode-option-desc">전체 CP 공개, 자유 순서, 점수 경쟁</div>
+                <div class="mode-option-desc">전체 공개 또는 순차 공개, 자유 순서, 점수 경쟁</div>
               </div>
               <div class="mode-option" data-mode="orienteering">
                 <div class="mode-option-icon">🧭</div>
@@ -528,6 +540,13 @@
         <div class="cp-editor">
           <div class="cp-map-wrap">
             <div class="map-tip">지도를 클릭하면 CP가 추가됩니다</div>
+            <!-- 지도 검색 -->
+            <div id="admin-map-search-wrap" style="position:absolute;top:12px;left:12px;z-index:10;display:flex;gap:6px;max-width:calc(100% - 100px)">
+              <input id="admin-map-search-input" type="text" placeholder="장소·주소 검색" style="height:34px;padding:0 12px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;background:white;box-shadow:0 2px 6px rgba(0,0,0,0.12);outline:none;width:200px;color:#2c2c2a">
+              <button id="admin-map-search-btn" style="height:34px;padding:0 12px;background:#1D9E75;color:white;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.12)"><i class="ti ti-search"></i></button>
+            </div>
+            <!-- 검색 결과 드롭다운 -->
+            <div id="admin-map-search-results" style="display:none;position:absolute;top:54px;left:12px;z-index:10;background:white;border:0.5px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);min-width:240px;max-width:320px;overflow:hidden"></div>
             <button class="map-type-btn" id="admin-map-type-btn">🛰️ 위성</button>
             <button id="admin-locate-btn" title="현재 위치로 이동" style="position:absolute;bottom:16px;right:16px;z-index:10;width:40px;height:40px;background:white;border:0.5px solid #ddd;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15)">📍</button>
             <div id="admin-map"></div>
@@ -605,7 +624,10 @@
                 <input type="text" id="cp-lat-input" placeholder="위도 예) 37.5954">
                 <input type="text" id="cp-lng-input" placeholder="경도 예) 126.9349">
               </div>
-              <div style="font-size:11px;color:#aaa;margin-top:-6px;margin-bottom:10px">
+              <button type="button" id="use-my-location-btn" class="btn btn-sm" style="width:100%;justify-content:center;margin-top:4px;color:#1D9E75;border-color:#b2e8d4">
+                <i class="ti ti-map-pin-filled"></i> 현재 위치를 좌표로 사용
+              </button>
+              <div style="font-size:11px;color:#aaa;margin-top:4px;margin-bottom:10px">
                 입력 후 Tab키를 누르면 지도에 바로 반영됩니다
               </div>
               <label>CP 유형</label>
@@ -1046,7 +1068,7 @@
 
     if (name === 'programs') {
       document.getElementById('menu-programs').classList.add('active');
-      renderPrograms();
+      if (!programsLoading) renderPrograms();
     } else if (name === 'new-program') {
       document.getElementById('menu-new').classList.add('active');
       resetForm();
@@ -1522,6 +1544,7 @@
     isAdminSatellite = false;
     document.getElementById('admin-map-type-btn').innerHTML = '🛰️ 위성';
     initCoordInputs();
+    initMapSearch();
     renderAdminMarkers();
     renderCPListAdmin();
     // 기존 GPX 경로 그리기
@@ -1538,7 +1561,10 @@
     });
   }
 
+  var coordInputsInitialized = false;
   function initCoordInputs() {
+    if (coordInputsInitialized) return; // 중복 등록 방지
+    coordInputsInitialized = true;
     var latInput = document.getElementById('cp-lat-input');
     var lngInput = document.getElementById('cp-lng-input');
     function applyCoord() {
@@ -1552,6 +1578,102 @@
     }
     latInput.addEventListener('change', applyCoord);
     lngInput.addEventListener('change', applyCoord);
+
+    document.getElementById('use-my-location-btn').addEventListener('click', function() {
+      if (selectedCPIndex === null) {
+        showAdminToast('먼저 CP를 선택하세요.'); return;
+      }
+      if (!navigator.geolocation) {
+        showAdminToast('이 브라우저는 GPS를 지원하지 않습니다.'); return;
+      }
+      var btn = this;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> 위치 가져오는 중...';
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = parseFloat(pos.coords.latitude.toFixed(6));
+        var lng = parseFloat(pos.coords.longitude.toFixed(6));
+        latInput.value = lat;
+        lngInput.value = lng;
+        applyCoord();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-map-pin-filled"></i> 현재 위치를 좌표로 사용';
+        showAdminToast('현재 위치로 좌표가 설정되었습니다.');
+      }, function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-map-pin-filled"></i> 현재 위치를 좌표로 사용';
+        var msg = err.code === 1 ? 'GPS 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.'
+                : err.code === 2 ? '위치를 가져올 수 없습니다. GPS 신호를 확인해주세요.'
+                : '위치 요청 시간이 초과되었습니다.';
+        showAdminToast(msg);
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+  }
+
+  var mapSearchInitialized = false;
+  function initMapSearch() {
+    if (mapSearchInitialized) return; // 중복 등록 방지
+    mapSearchInitialized = true;
+    var input   = document.getElementById('admin-map-search-input');
+    var btn     = document.getElementById('admin-map-search-btn');
+    var results = document.getElementById('admin-map-search-results');
+
+    function showResults(items) {
+      results.innerHTML = '';
+      if (!items || items.length === 0) {
+        results.innerHTML = '<div style="padding:12px 14px;font-size:13px;color:#888">검색 결과가 없습니다</div>';
+        results.style.display = 'block';
+        return;
+      }
+      items.forEach(function(item) {
+        var lat = parseFloat(item.lat), lng = parseFloat(item.lon);
+        var name = item.display_name.split(',').slice(0, 3).join(', ');
+        var row = document.createElement('div');
+        row.style.cssText = 'padding:10px 14px;font-size:13px;cursor:pointer;border-bottom:0.5px solid #f0efe8;line-height:1.5';
+        row.innerHTML = '<div style="font-weight:500;color:#2c2c2a">' + (item.nameKo || item.name || name) + '</div>' +
+          '<div style="font-size:11px;color:#aaa">' + name + '</div>';
+        row.addEventListener('mouseenter', function() { this.style.background = '#f5f5f0'; });
+        row.addEventListener('mouseleave', function() { this.style.background = ''; });
+        row.addEventListener('click', function() {
+          adminMap.setCenter(new naver.maps.LatLng(lat, lng));
+          adminMap.setZoom(17);
+          results.style.display = 'none';
+          input.value = item.name || name;
+        });
+        results.appendChild(row);
+      });
+      results.style.display = 'block';
+    }
+
+    function doSearch() {
+      var q = input.value.trim();
+      if (!q) return;
+      results.style.display = 'none';
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>';
+      fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) +
+        '&format=json&countrycodes=kr&limit=6&accept-language=ko',
+        { headers: { 'Accept-Language': 'ko' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="ti ti-search"></i>';
+          showResults(data);
+        })
+        .catch(function() {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="ti ti-search"></i>';
+          results.innerHTML = '<div style="padding:12px 14px;font-size:13px;color:#888">검색 중 오류가 발생했습니다</div>';
+          results.style.display = 'block';
+        });
+    }
+
+    btn.addEventListener('click', doSearch);
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') doSearch(); });
+    document.addEventListener('click', function(e) {
+      if (!results.contains(e.target) && e.target !== input && e.target !== btn) {
+        results.style.display = 'none';
+      }
+    });
   }
 
   function renderAdminMarkers() {
@@ -1572,6 +1694,8 @@
     });
   }
 
+  var dragSrcIdx = null;
+
   function renderCPListAdmin() {
     var list = document.getElementById('cp-list-admin');
     list.innerHTML = '';
@@ -1580,17 +1704,87 @@
       var displayId = cp.type==='start' ? '출발' : cp.type==='end' ? '도착' : cp.id;
       var item = document.createElement('div');
       item.className = 'cp-list-item' + (selectedCPIndex===i ? ' selected' : '');
+      item.draggable = true;
+      item.dataset.idx = i;
       item.innerHTML =
+        '<div style="color:#ccc;font-size:16px;cursor:grab;flex-shrink:0;padding:0 4px 0 0;line-height:1" class="drag-handle">⠿</div>' +
         '<div class="cp-num ' + numClass + '" style="font-size:10px">' + displayId + '</div>' +
-        '<div style="flex:1"><div class="cp-item-name">' + cp.name + '</div>' +
+        '<div style="flex:1;min-width:0"><div class="cp-item-name">' + cp.name + '</div>' +
         '<div class="cp-item-type">' + (cp.type==='start'?'GPS 자동인증':cp.type==='end'?'GPS 자동인증':'일반 CP') + '</div></div>' +
-        '<button class="btn btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" data-add="' + i + '">+ 아래 추가</button>';
+        '<div style="display:flex;gap:4px;flex-shrink:0">' +
+          '<button class="btn btn-sm" style="padding:3px 8px;font-size:11px" data-add="' + i + '">+ 아래</button>' +
+          '<button class="btn btn-sm btn-danger" style="padding:3px 8px;font-size:11px" data-del="' + i + '" title="삭제"><i class="ti ti-trash"></i></button>' +
+        '</div>';
+
+      // 드래그&드롭 이벤트
+      item.addEventListener('dragstart', function(e) {
+        dragSrcIdx = i;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(function() { item.style.opacity = '0.4'; }, 0);
+      });
+      item.addEventListener('dragend', function() {
+        item.style.opacity = '';
+        list.querySelectorAll('.cp-list-item').forEach(function(el) {
+          el.style.borderTop = '';
+          el.style.borderBottom = '';
+        });
+      });
+      item.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        list.querySelectorAll('.cp-list-item').forEach(function(el) { el.style.borderTop = ''; el.style.borderBottom = ''; });
+        var rect = item.getBoundingClientRect();
+        var mid  = rect.top + rect.height / 2;
+        if (e.clientY < mid) item.style.borderTop = '2px solid #1D9E75';
+        else item.style.borderBottom = '2px solid #1D9E75';
+      });
+      item.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (dragSrcIdx === null || dragSrcIdx === i) return;
+        var rect = item.getBoundingClientRect();
+        var insertAfter = e.clientY >= rect.top + rect.height / 2;
+        var targetIdx = insertAfter ? i : i - 1;
+        // 삽입 위치 보정
+        var moved = cpData.splice(dragSrcIdx, 1)[0];
+        var insertAt = dragSrcIdx < i ? targetIdx : targetIdx + 1;
+        if (insertAt < 0) insertAt = 0;
+        cpData.splice(insertAt, 0, moved);
+        // 선택 인덱스 보정
+        if (selectedCPIndex === dragSrcIdx) {
+          selectedCPIndex = insertAt;
+        } else if (selectedCPIndex !== null) {
+          // 대략적인 보정 (정확성보다 안정성 우선)
+          selectedCPIndex = null;
+          document.getElementById('cp-edit-form').style.display = 'none';
+        }
+        reorderNormalCPs();
+        renderAdminMarkers();
+        renderCPListAdmin();
+      });
+
       (function(idx) {
         item.querySelector('[data-add]').addEventListener('click', function(e) {
           e.stopPropagation();
           addCPAfter(idx);
         });
-        item.addEventListener('click', function() { selectCP(idx); });
+        item.querySelector('[data-del]').addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (!confirm(cpData[idx].name + ' 을(를) 삭제할까요?')) return;
+          cpData.splice(idx, 1);
+          if (selectedCPIndex === idx) {
+            selectedCPIndex = null;
+            document.getElementById('cp-edit-form').style.display = 'none';
+          } else if (selectedCPIndex > idx) {
+            selectedCPIndex--;
+          }
+          reorderNormalCPs();
+          renderAdminMarkers();
+          renderCPListAdmin();
+        });
+        item.addEventListener('click', function(e) {
+          if (e.target.closest('.drag-handle') || e.target.closest('[data-add]') || e.target.closest('[data-del]')) return;
+          selectCP(idx);
+        });
       })(i);
       list.appendChild(item);
     });
@@ -2195,31 +2389,77 @@
 
   // ── Firestore 실시간 프로그램 목록 구독 ───────────────
   var programsUnsubscribe = null;
+  var programsLoading = false;
+
+  function sortPrograms() {
+    programs.sort(function(a, b) {
+      var ta = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : 0) : 0;
+      var tb = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : 0) : 0;
+      return tb - ta;
+    });
+  }
+
+  function showProgLoading(show) {
+    programsLoading = show;
+    document.getElementById('prog-loading').style.display = show ? 'block' : 'none';
+    document.getElementById('load-error-state').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('prog-grid').style.display = show ? 'none' : '';
+  }
+
+  function showProgError(msg) {
+    document.getElementById('prog-loading').style.display = 'none';
+    document.getElementById('prog-grid').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('load-error-msg').textContent = msg || '프로그램 목록을 불러오지 못했습니다.';
+    document.getElementById('load-error-state').style.display = 'block';
+  }
 
   function loadPrograms() {
-    // 이미 구독 중이면 재구독 방지
     if (programsUnsubscribe) return;
     showScreen('programs');
+    showProgLoading(true);
+
+    // 먼저 .get()으로 빠르게 초기 데이터 로드
+    db.collection('programs').get().then(function(snapshot) {
+      programs = [];
+      snapshot.forEach(function(doc) {
+        programs.push(Object.assign({ id: doc.id }, doc.data()));
+      });
+      sortPrograms();
+      showProgLoading(false);
+      var activeScreen = document.querySelector('.screen.active');
+      if (activeScreen && activeScreen.id === 'screen-programs') renderPrograms();
+    }).catch(function(err) {
+      console.error('프로그램 초기 로드 오류:', err);
+      showProgLoading(false);
+      showProgError('프로그램 목록 로드 실패: ' + err.message);
+    });
+
+    // 이후 실시간 업데이트를 위해 onSnapshot 구독
     programsUnsubscribe = db.collection('programs').onSnapshot(function(snapshot) {
       programs = [];
       snapshot.forEach(function(doc) {
         programs.push(Object.assign({ id: doc.id }, doc.data()));
       });
-      // 최신순 정렬 (클라이언트 사이드)
-      programs.sort(function(a, b) {
-        var ta = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : 0) : 0;
-        var tb = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : 0) : 0;
-        return tb - ta;
-      });
-      // 현재 화면이 programs/stats면 즉시 반영
+      sortPrograms();
+      showProgLoading(false);
+      document.getElementById('load-error-state').style.display = 'none';
+      document.getElementById('prog-grid').style.display = '';
       var activeScreen = document.querySelector('.screen.active');
-      if (activeScreen && activeScreen.id === 'screen-programs') { renderPrograms(); }
-      if (activeScreen && activeScreen.id === 'screen-stats') { renderStats(); }
+      if (activeScreen && activeScreen.id === 'screen-programs') renderPrograms();
+      if (activeScreen && activeScreen.id === 'screen-stats') renderStats();
     }, function(err) {
       console.error('프로그램 목록 구독 오류:', err);
-      alert('프로그램 목록을 불러오지 못했습니다: ' + err.message);
+      // onSnapshot 실패 시 .get() 데이터가 있으면 유지, 없으면 에러 표시
+      if (programs.length === 0) showProgError('실시간 연결 실패: ' + err.message);
     });
   }
+
+  document.getElementById('retry-load-btn').addEventListener('click', function() {
+    if (programsUnsubscribe) { programsUnsubscribe(); programsUnsubscribe = null; }
+    loadPrograms();
+  });
 
   // ── QR 코드 모달 ──────────────────────────────────────
   function showQRModal(progId) {

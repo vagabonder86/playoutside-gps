@@ -43,6 +43,30 @@
     .prog-card { background: white; border-radius: 12px; border: 0.5px solid #e0e0d8; overflow: hidden; }
     .prog-card.ended { opacity: 0.6; }
     .admin-toast { position: fixed; top: 72px; right: 20px; z-index: 9999; background: #085041; color: white; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,0.25); display: none; max-width: 320px; line-height: 1.5; }
+
+    /* ── 메모 ───────────────────────────────────────────── */
+    .memo-tag-btn {
+      padding: 4px 11px; border-radius: 20px; border: 0.5px solid #ddd;
+      background: white; font-size: 12px; cursor: pointer; color: #666;
+      transition: all .15s; font-family: inherit;
+    }
+    .memo-tag-btn.active { background: #1D9E75; color: white; border-color: #1D9E75; }
+    .memo-card {
+      background: white; border-radius: 10px; border: 0.5px solid #e0e0d8;
+      padding: 16px 18px; margin-bottom: 10px;
+      transition: box-shadow .15s;
+    }
+    .memo-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+    .memo-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .memo-tag-badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 500; }
+    .memo-tag-general  { background: #f0f0ec; color: #666; }
+    .memo-tag-feedback { background: #E1F5EE; color: #0F6E56; }
+    .memo-tag-issue    { background: #FAECE7; color: #712B13; }
+    .memo-tag-idea     { background: #EEEDFE; color: #534AB7; }
+    .memo-content { font-size: 13px; line-height: 1.7; color: #2c2c2a; white-space: pre-wrap; word-break: break-word; }
+    .memo-meta { font-size: 11px; color: #aaa; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .memo-del-btn { font-size: 11px; color: #ccc; background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+    .memo-del-btn:hover { color: #A32D2D; background: #fee2e2; }
     .prog-card-header { padding: 16px 18px; border-bottom: 0.5px solid #f0efe8; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .prog-card-title { font-size: 14px; font-weight: 500; }
     .prog-card-meta { font-size: 12px; color: #888; margin-top: 4px; }
@@ -235,6 +259,8 @@
       <div class="menu-section">운영</div>
       <div class="menu-item" id="menu-participants"><i class="ti ti-users"></i> 참가자 현황</div>
       <div class="menu-item" id="menu-stats"><i class="ti ti-chart-bar"></i> 통계</div>
+      <div class="menu-section">기타</div>
+      <div class="menu-item" id="menu-memo"><i class="ti ti-note"></i> 메모</div>
     </div>
     <div style="padding:16px 20px;border-top:0.5px solid rgba(255,255,255,0.1)">
       <div style="font-size:11px;opacity:0.5">playoutside.co.kr</div>
@@ -778,6 +804,40 @@
         </div>
       </div>
 
+      <!-- 메모 -->
+      <div class="screen" id="screen-memo">
+        <!-- 입력창 -->
+        <div style="background:white;border-radius:12px;border:0.5px solid #e0e0d8;padding:20px;margin-bottom:16px">
+          <div style="font-size:14px;font-weight:500;margin-bottom:12px;color:#1D9E75">📝 새 메모</div>
+          <textarea id="memo-input" placeholder="운영 피드백, 특이사항, 개선점 등을 자유롭게 기록하세요..."
+            style="width:100%;height:90px;padding:12px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;resize:none;font-family:inherit;line-height:1.6;outline:none;color:#2c2c2a"></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="memo-tag-btns">
+              <button class="memo-tag-btn active" data-tag="general">📋 일반</button>
+              <button class="memo-tag-btn" data-tag="feedback">💬 피드백</button>
+              <button class="memo-tag-btn" data-tag="issue">⚠️ 이슈</button>
+              <button class="memo-tag-btn" data-tag="idea">💡 아이디어</button>
+            </div>
+            <button class="btn btn-primary" id="memo-save-btn" style="padding:8px 18px">
+              <i class="ti ti-send"></i> 저장
+            </button>
+          </div>
+        </div>
+        <!-- 검색/필터 -->
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+          <input id="memo-search" type="text" placeholder="🔍 메모 검색..." style="flex:1;padding:8px 12px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;outline:none;font-family:inherit">
+          <select id="memo-filter" style="padding:8px 12px;border:0.5px solid #ddd;border-radius:8px;font-size:13px;outline:none;background:white;color:#2c2c2a">
+            <option value="">전체 태그</option>
+            <option value="general">📋 일반</option>
+            <option value="feedback">💬 피드백</option>
+            <option value="issue">⚠️ 이슈</option>
+            <option value="idea">💡 아이디어</option>
+          </select>
+        </div>
+        <!-- 메모 목록 -->
+        <div id="memo-list"><div style="text-align:center;padding:40px;color:#aaa;font-size:13px">메모를 불러오는 중...</div></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -953,6 +1013,7 @@
     if (progId) { showScreen('participants', progId); }
   });
   document.getElementById('menu-stats').addEventListener('click', function() { showScreen('stats'); });
+  document.getElementById('menu-memo').addEventListener('click', function() { showScreen('memo'); });
   document.getElementById('topbar-new-btn').addEventListener('click', function() { showScreen('new-program'); });
   document.getElementById('empty-new-btn').addEventListener('click', function() { showScreen('new-program'); });
   document.getElementById('cancel-btn').addEventListener('click', function() { showScreen('programs'); });
@@ -1057,7 +1118,7 @@
     document.getElementById('screen-' + name).classList.add('active');
     document.getElementById('back-btn').style.display = name === 'programs' ? 'none' : 'flex';
     document.getElementById('topbar-new-btn').style.display = name === 'cp-editor' ? 'none' : 'flex';
-    var titles = { programs:'프로그램 목록', 'new-program':'새 프로그램 만들기', 'cp-editor':'CP 편집', participants:'참가자 현황', stats:'통계' };
+    var titles = { programs:'프로그램 목록', 'new-program':'새 프로그램 만들기', 'cp-editor':'CP 편집', participants:'참가자 현황', stats:'통계', memo:'메모' };
     document.getElementById('topbar-title').textContent = titles[name] || '';
 
     // 참가자 현황을 벗어나면 실시간 구독 해제
@@ -1112,6 +1173,9 @@
     } else if (name === 'stats') {
       document.getElementById('menu-stats').classList.add('active');
       renderStats();
+    } else if (name === 'memo') {
+      document.getElementById('menu-memo').classList.add('active');
+      loadMemos();
     }
   }
 
@@ -2586,6 +2650,113 @@
       );
     });
   };
+
+  // ══════════════════════════════════════════════════════
+  // 메모 기능
+  // ══════════════════════════════════════════════════════
+  var allMemos = [];
+  var selectedTag = 'general';
+
+  var tagLabels = { general:'📋 일반', feedback:'💬 피드백', issue:'⚠️ 이슈', idea:'💡 아이디어' };
+  var tagClasses = { general:'memo-tag-general', feedback:'memo-tag-feedback', issue:'memo-tag-issue', idea:'memo-tag-idea' };
+
+  // 태그 버튼 선택
+  document.querySelectorAll('.memo-tag-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.memo-tag-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      selectedTag = btn.dataset.tag;
+    });
+  });
+
+  // 메모 저장
+  document.getElementById('memo-save-btn').addEventListener('click', function() {
+    var content = document.getElementById('memo-input').value.trim();
+    if (!content) { showAdminToast('메모 내용을 입력하세요'); return; }
+    var btn = this;
+    btn.disabled = true;
+    db.collection('memos').add({
+      content: content,
+      tag: selectedTag,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function() {
+      document.getElementById('memo-input').value = '';
+      showAdminToast('✅ 메모가 저장되었습니다');
+      loadMemos();
+    }).catch(function(err) {
+      showAdminToast('저장 실패: ' + err.message);
+    }).finally(function() {
+      btn.disabled = false;
+    });
+  });
+
+  // Ctrl+Enter로 저장
+  document.getElementById('memo-input').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      document.getElementById('memo-save-btn').click();
+    }
+  });
+
+  // 검색/필터 실시간 반영
+  document.getElementById('memo-search').addEventListener('input', renderMemos);
+  document.getElementById('memo-filter').addEventListener('change', renderMemos);
+
+  // 메모 로드
+  function loadMemos() {
+    db.collection('memos').orderBy('createdAt', 'desc').limit(200)
+      .get().then(function(snap) {
+        allMemos = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+        renderMemos();
+      }).catch(function(err) {
+        document.getElementById('memo-list').innerHTML = '<div style="color:#A32D2D;padding:20px;font-size:13px">불러오기 실패: ' + err.message + '</div>';
+      });
+  }
+
+  // 메모 렌더링 (검색/필터 적용)
+  function renderMemos() {
+    var keyword = document.getElementById('memo-search').value.trim().toLowerCase();
+    var filterTag = document.getElementById('memo-filter').value;
+    var filtered = allMemos.filter(function(m) {
+      if (filterTag && m.tag !== filterTag) return false;
+      if (keyword && m.content.toLowerCase().indexOf(keyword) === -1) return false;
+      return true;
+    });
+    var list = document.getElementById('memo-list');
+    if (filtered.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#aaa;font-size:13px">' +
+        '<div style="font-size:36px;margin-bottom:12px">📝</div>메모가 없습니다</div>';
+      return;
+    }
+    list.innerHTML = filtered.map(function(m) {
+      var dt = m.createdAt ? m.createdAt.toDate() : new Date();
+      var dateStr = dt.toLocaleDateString('ko-KR', { month:'long', day:'numeric' }) + ' ' +
+                    dt.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+      var tagLabel = tagLabels[m.tag] || m.tag;
+      var tagCls   = tagClasses[m.tag] || 'memo-tag-general';
+      return '<div class="memo-card">' +
+        '<div class="memo-card-top">' +
+          '<span class="memo-tag-badge ' + tagCls + '">' + tagLabel + '</span>' +
+          '<button class="memo-del-btn" onclick="deleteMemo(\'' + m.id + '\')">🗑 삭제</button>' +
+        '</div>' +
+        '<div class="memo-content">' + escapeHtml(m.content) + '</div>' +
+        '<div class="memo-meta"><span>' + dateStr + '</span></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // 메모 삭제
+  function deleteMemo(id) {
+    if (!confirm('이 메모를 삭제할까요?')) return;
+    db.collection('memos').doc(id).delete().then(function() {
+      allMemos = allMemos.filter(function(m) { return m.id !== id; });
+      renderMemos();
+      showAdminToast('메모가 삭제되었습니다');
+    });
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 </script>
 
 <!-- 모바일 하단 탭바 -->

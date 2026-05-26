@@ -1554,19 +1554,42 @@
     }
 
     function updateMarkers() {
-      // 순차 공개 모드: 다음 목표 CP 인덱스 계산
+      if (!isSequential()) {
+        // 비순차 모드: 모든 마커 표시
+        checkpoints.forEach(function(cp, i) {
+          markers[i].setMap(map);
+          markers[i].setIcon(makeIcon(cp, i));
+        });
+        return;
+      }
+
+      // 순차 공개 모드 — S → CP → ... → F 순서로 하나씩 공개
+      var startDone    = completedCPs.has(0); // S 인증 여부
+      var allNormalDone = checkpoints.every(function(c, idx) {
+        return c.type !== 'normal' || completedCPs.has(idx);
+      });
+
+      // 다음 목표 일반 CP (S 인증 후에만 계산)
       var nextSeqIdx = -1;
-      if (isSequential()) {
+      if (startDone) {
         for (var si = 0; si < checkpoints.length; si++) {
           if (checkpoints[si].type === 'normal' && !completedCPs.has(si)) { nextSeqIdx = si; break; }
         }
       }
+
       checkpoints.forEach(function(cp, i) {
         var done = completedCPs.has(i);
-        // 순차 공개: 잠긴 CP(다음 목표가 아닌 미완료 일반 CP)는 마커 숨기기
-        var isLocked = isSequential() && cp.type === 'normal' && !done && nextSeqIdx !== -1 && i !== nextSeqIdx;
-        markers[i].setMap(isLocked ? null : map);
-        if (!isLocked) markers[i].setIcon(makeIcon(cp, i));
+        var show;
+        if (cp.type === 'start') {
+          show = true;                          // S 항상 표시
+        } else if (cp.type === 'end') {
+          show = allNormalDone;                 // F는 모든 CP 완료 후 공개
+        } else {
+          // 일반 CP: 완료됐거나 다음 목표인 경우만 표시
+          show = done || (startDone && i === nextSeqIdx);
+        }
+        markers[i].setMap(show ? map : null);
+        if (show) markers[i].setIcon(makeIcon(cp, i));
       });
     }
 
@@ -1969,25 +1992,31 @@
             return c.type !== 'normal' || completedCPs.has(idx);
           });
           var canFinish = allNormalDone && nearEnd;
-          statusClass = done ? 'status-done' : (canFinish ? 'status-open' : 'status-lock');
-          statusText  = done ? '인증완료' : (canFinish ? '인증 가능' : 'GPS 대기');
+          var seqFinLocked = isSequential() && !done && !allNormalDone;
+          statusClass = done ? 'status-done' : (seqFinLocked ? 'status-lock' : (canFinish ? 'status-open' : 'status-lock'));
+          statusText  = done ? '인증완료' : (seqFinLocked ? '🔒 잠금' : (canFinish ? '인증 가능' : 'GPS 대기'));
           desc        = done ? '도착 인증 완료'
+                             : seqFinLocked ? '모든 CP 완료 후 위치가 공개됩니다'
                              : canFinish ? '✅ 반경 도착! F 마커를 탭해서 인증하세요'
-                             : !allNormalDone ? '모든 미션 완료 후 30m 반경 진입 후 탭하여 인증'
-                                             : '도착 지점 30m 반경 진입 후 탭하여 인증';
+                             : '도착 지점 30m 반경 진입 후 탭하여 인증';
           badgeLabel  = done ? '✓' : 'F';
-          badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : 'background:#FAECE7;color:#712B13';
+          badgeStyle  = done ? 'background:#D1FAE5;color:#065F46' : (seqFinLocked ? 'background:#f0efe8;color:#aaa' : 'background:#FEE2E2;color:#991B1B');
         } else {
           var gpsOk = gpsVerifiedCPs.has(i);
 
-          // 순차 공개 모드: 현재 순서가 아닌 CP는 잠금
+          // 순차 공개 모드: S 미인증이거나 현재 순서가 아닌 CP는 잠금
           var oriLocked = false;
           if (isSequential() && !done) {
-            var nextOri = -1;
-            for (var oi2 = 0; oi2 < checkpoints.length; oi2++) {
-              if (checkpoints[oi2].type === 'normal' && !completedCPs.has(oi2)) { nextOri = oi2; break; }
+            var startDoneR = completedCPs.has(0);
+            if (!startDoneR) {
+              oriLocked = true; // S 아직 미인증 → 모든 일반 CP 잠금
+            } else {
+              var nextOri = -1;
+              for (var oi2 = 0; oi2 < checkpoints.length; oi2++) {
+                if (checkpoints[oi2].type === 'normal' && !completedCPs.has(oi2)) { nextOri = oi2; break; }
+              }
+              if (nextOri !== -1 && nextOri !== i) oriLocked = true;
             }
-            if (nextOri !== -1 && nextOri !== i) oriLocked = true;
           }
 
           statusClass = done ? 'status-done' : (oriLocked ? 'status-lock' : (gpsOk ? 'status-open' : 'status-lock'));

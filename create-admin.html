@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>관리자 계정 생성</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f0fdf4; margin: 0; }
+    .box { background: white; border-radius: 16px; padding: 32px; max-width: 360px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+    h2 { color: #059669; margin-bottom: 8px; }
+    p { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+    .info { background: #f0fdf4; border: 1px solid #d1fae5; border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: 13px; color: #374151; text-align: left; line-height: 1.8; }
+    button { width: 100%; padding: 14px; background: linear-gradient(135deg, #059669, #10b981); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    button:disabled { background: #d1d5db; cursor: not-allowed; }
+    .result { margin-top: 16px; padding: 12px 16px; border-radius: 10px; font-size: 13px; display: none; }
+    .result.ok  { background: #d1fae5; color: #065f46; }
+    .result.err { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <h2>🔐 관리자 계정 생성</h2>
+  <p>아래 계정을 Firebase Auth에 등록합니다</p>
+  <div class="info">
+    📧 <b>이메일:</b> playoutside@playoutside.co.kr<br>
+    🔑 <b>비밀번호:</b> playoutside5790
+  </div>
+  <button id="btn" onclick="createAccount()">계정 생성하기</button>
+  <div class="result" id="result"></div>
+</div>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyDqONjVeI3ACN2ZgaOFkUMkkuTvsBMcok0",
+    authDomain: "playoutside-gps.firebaseapp.com",
+    projectId: "playoutside-gps"
+  });
+
+  function createAccount() {
+    var btn = document.getElementById('btn');
+    var res = document.getElementById('result');
+    btn.disabled = true;
+    btn.textContent = '생성 중...';
+    firebase.auth().createUserWithEmailAndPassword(
+      'playoutside@playoutside.co.kr',
+      'playoutside5790'
+    ).then(function() {
+      res.className = 'result ok';
+      res.style.display = 'block';
+      res.innerHTML = '✅ 계정이 생성되었습니다!<br>이제 admin.html에서 로그인하세요.<br><br><a href="admin.html" style="color:#059669;font-weight:700">→ 관리자 페이지로 이동</a>';
+      btn.textContent = '✅ 완료';
+    }).catch(function(err) {
+      res.className = 'result err';
+      res.style.display = 'block';
+      if (err.code === 'auth/email-already-in-use') {
+        res.innerHTML = '⚠️ 이미 등록된 계정입니다.<br><a href="admin.html" style="color:#991b1b;font-weight:700">→ 관리자 페이지에서 바로 로그인하세요</a>';
+      } else {
+        res.textContent = '오류: ' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '다시 시도';
+    });
+  }
+</script>
+</body>
+</html>

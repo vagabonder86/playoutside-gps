@@ -177,9 +177,10 @@
 
     /* 상태 뱃지 */
     .cp-status { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
-    .status-lock { background: #F3F4F6; color: #9CA3AF; }
-    .status-open { background: #FEF3C7; color: #B45309; }   /* 🎯 GO! 앰버 — 행동 필요 */
-    .status-done { background: #D1FAE5; color: #065F46; }    /* ✅ 완료 */
+    .status-lock    { background: #F3F4F6; color: #9CA3AF; }
+    .status-open    { background: #FEF3C7; color: #B45309; }   /* 🎯 GO! 앰버 — 행동 필요 */
+    .status-done    { background: #D1FAE5; color: #065F46; }   /* ✅ 완료 */
+    .status-claimed { background: #FEE2E2; color: #991B1B; }   /* 🚫 점유됨 */
 
     /* ── GPS 알림 토스트 ────────────────────────────────────── */
     #gps-alert {
@@ -737,6 +738,13 @@
       if (currentProgMode === 'geocaching' && currentModeSettings && currentModeSettings.reveal === 'sequential') return true;
       return false;
     }
+
+    // 지오캐싱 CP 점유 중복 불가 여부
+    function isGeoExclusive() {
+      return currentProgMode === 'geocaching';
+    }
+
+    var claimedCPs = {}; // { "cpIndex": { userId, name } } — 다른 참가자가 점유한 CP
     var gpxRoute = [];                // 하이킹 GPX 경로 좌표 [{lat,lng},...]
     var gpxPolyline = null;           // 지도 폴리라인 인스턴스
     var userName = '';
@@ -1279,6 +1287,7 @@
           renderCPList();
           startGPSWatch();
           subscribeLeaderboard();
+          subscribeClaimedCPs();
           if (currentProgMode === 'hiking' || currentProgMode === 'canoe') initHikingUI();
 
           if (existingData.status === 'finished') {
@@ -1294,6 +1303,7 @@
           renderCPList();
           startGPSWatch();
           subscribeLeaderboard();
+          subscribeClaimedCPs();
           if (currentProgMode === 'hiking' || currentProgMode === 'canoe') initHikingUI();
         }
 
@@ -1391,20 +1401,30 @@
       playAlert('cp');
 
       if (qrMode === 'qr-instant') {
-        // 즉시 완료 (질문/정답 없음)
-        completedCPs.add(idx);
-        recordCPComplete(idx);
-        var remaining = checkpoints.filter(function(c, i) {
-          return c.type === 'normal' && !completedCPs.has(i);
-        }).length;
-        document.getElementById('success-icon').textContent  = '📱';
-        document.getElementById('success-title').textContent = 'QR 인증 완료!';
-        document.getElementById('success-sub').textContent   = remaining > 0
-          ? cp.name + ' 완료! 남은 포인트: ' + remaining + '/' + totalNormalCPs + '개'
-          : cp.name + ' 완료! 이제 도착 지점으로 이동하세요. 🏃';
-        document.getElementById('success-overlay').style.display = 'flex';
-        updateMarkers();
-        renderCPList();
+        // 즉시 완료 (질문/정답 없음) — 점유 트랜잭션 포함
+        claimCP(idx, function(ok, claimer) {
+          if (!ok) {
+            document.getElementById('success-icon').textContent  = '🚫';
+            document.getElementById('success-title').textContent = '이미 점유된 CP!';
+            document.getElementById('success-sub').textContent   =
+              (claimer || '다른 참가자') + '님이 먼저 도착했어요!\n다음 CP로 이동하세요.';
+            document.getElementById('success-overlay').style.display = 'flex';
+            return;
+          }
+          completedCPs.add(idx);
+          recordCPComplete(idx);
+          var remaining = checkpoints.filter(function(c, i) {
+            return c.type === 'normal' && !completedCPs.has(i);
+          }).length;
+          document.getElementById('success-icon').textContent  = '📱';
+          document.getElementById('success-title').textContent = 'QR 인증 완료!';
+          document.getElementById('success-sub').textContent   = remaining > 0
+            ? cp.name + ' 완료! 남은 포인트: ' + remaining + '/' + totalNormalCPs + '개'
+            : cp.name + ' 완료! 이제 도착 지점으로 이동하세요. 🏃';
+          document.getElementById('success-overlay').style.display = 'flex';
+          updateMarkers();
+          renderCPList();
+        });
       } else {
         // qr-visit / qr-answer → 미션 오버레이로 진입 (missionType이 흐름 결정)
         showGpsAlert('📱 QR 인증! 미션을 확인하세요');
@@ -1538,7 +1558,9 @@
     // ── 마커 아이콘 ───────────────────────────────────────
     function makeIcon(cp, i) {
       var done = completedCPs.has(i);
-      var bg   = done ? '#1D9E75' : cp.color;
+      // 지오캐싱: 다른 참가자가 점유한 CP는 회색 마커
+      var claimedByOther = isGeoExclusive() && !done && claimedCPs[String(i)] && claimedCPs[String(i)].userId !== userId;
+      var bg = done ? '#1D9E75' : (claimedByOther ? '#9CA3AF' : cp.color);
       var size = (cp.type === 'start' || cp.type === 'end') ? '38px' : '32px';
       var orderNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
       var visitNum = visitOrderMap[i];
@@ -1750,6 +1772,14 @@
       }
       if (!started) { alert('먼저 출발 지점에서 인증해주세요!'); return; }
       if (completedCPs.has(i)) { alert('이미 완료한 포인트입니다!'); return; }
+      // 지오캐싱 점유 중복 방지: 다른 참가자가 점유한 CP는 미션 진입 차단
+      if (isGeoExclusive()) {
+        var claim = claimedCPs[String(i)];
+        if (claim && claim.userId !== userId) {
+          showGpsAlert('🚫 ' + claim.name + '님이 이미 점유한 CP입니다!');
+          return;
+        }
+      }
       if (!gpsVerifiedCPs.has(i)) {
         showGpsAlert('📍 ' + cp.name + ' 에 직접 방문해야 미션을 시작할 수 있습니다');
         return;
@@ -1874,34 +1904,47 @@
       }
 
       if (correct) {
-        completedCPs.add(activeCPIndex);
-        recordCPComplete(activeCPIndex);
-        document.getElementById('mission-overlay').style.display = 'none';
-        var remaining = checkpoints.filter(function(c, idx) {
-          return c.type === 'normal' && !completedCPs.has(idx);
-        }).length;
-        document.getElementById('success-icon').textContent  = '🎉';
-        document.getElementById('success-title').textContent = '미션 완료!';
-        document.getElementById('success-sub').textContent   = remaining > 0
-          ? '정답입니다! 남은 포인트: ' + remaining + '/' + totalNormalCPs + '개'
-          : '모든 미션 완료! 이제 도착 지점으로 이동하세요. 🏃';
-        document.getElementById('success-overlay').style.display = 'flex';
-        updateMarkers();
-        renderCPList();
+        var submitIdx = activeCPIndex;
+        // 지오캐싱 점유 중복 방지: 트랜잭션으로 점유 확인 후 완료 처리
+        claimCP(submitIdx, function(ok, claimer) {
+          if (!ok) {
+            document.getElementById('mission-overlay').style.display = 'none';
+            document.getElementById('success-icon').textContent  = '🚫';
+            document.getElementById('success-title').textContent = '이미 점유된 CP!';
+            document.getElementById('success-sub').textContent   =
+              (claimer || '다른 참가자') + '님이 먼저 도착했어요!\n다음 CP로 이동하세요.';
+            document.getElementById('success-overlay').style.display = 'flex';
+            return;
+          }
+          completedCPs.add(submitIdx);
+          recordCPComplete(submitIdx);
+          document.getElementById('mission-overlay').style.display = 'none';
+          var remaining = checkpoints.filter(function(c, idx) {
+            return c.type === 'normal' && !completedCPs.has(idx);
+          }).length;
+          document.getElementById('success-icon').textContent  = '🎉';
+          document.getElementById('success-title').textContent = '미션 완료!';
+          document.getElementById('success-sub').textContent   = remaining > 0
+            ? '정답입니다! 남은 포인트: ' + remaining + '/' + totalNormalCPs + '개'
+            : '모든 미션 완료! 이제 도착 지점으로 이동하세요. 🏃';
+          document.getElementById('success-overlay').style.display = 'flex';
+          updateMarkers();
+          renderCPList();
 
-        // 사진 백그라운드 업로드
-        var photoFile = document.getElementById('mission-photo-input').files[0];
-        if (photoFile && storage && userId && currentProgId) {
-          var ref = storage.ref('cp-photos/' + currentProgId + '/' + userId + '_cp' + activeCPIndex + '_' + Date.now());
-          ref.put(photoFile).then(function(snap) {
-            return snap.ref.getDownloadURL();
-          }).then(function(url) {
-            var update = {};
-            update['cpPhotos.' + activeCPIndex] = url;
-            db.collection('participants').doc(currentProgId)
-              .collection('users').doc(userId).update(update).catch(function(){});
-          }).catch(function(e) { console.warn('사진 업로드 실패:', e); });
-        }
+          // 사진 백그라운드 업로드
+          var photoFile = document.getElementById('mission-photo-input').files[0];
+          if (photoFile && storage && userId && currentProgId) {
+            var ref = storage.ref('cp-photos/' + currentProgId + '/' + userId + '_cp' + submitIdx + '_' + Date.now());
+            ref.put(photoFile).then(function(snap) {
+              return snap.ref.getDownloadURL();
+            }).then(function(url) {
+              var update = {};
+              update['cpPhotos.' + submitIdx] = url;
+              db.collection('participants').doc(currentProgId)
+                .collection('users').doc(userId).update(update).catch(function(){});
+            }).catch(function(e) { console.warn('사진 업로드 실패:', e); });
+          }
+        }); // claimCP callback 끝
       } else {
         document.getElementById('mission-error').style.display = 'block';
         document.getElementById('mission-input').value = '';
@@ -2019,10 +2062,14 @@
             }
           }
 
-          statusClass = done ? 'status-done' : (oriLocked ? 'status-lock' : (gpsOk ? 'status-open' : 'status-lock'));
-          statusText  = done ? '완료' : (oriLocked ? '🔒 잠금' : (gpsOk ? '미션 대기' : '이동 중'));
-          desc        = done ? '미션 완료' : (oriLocked ? '이전 CP 완료 후 위치가 공개됩니다' : (gpsOk ? '탭해서 미션 확인' : '지도에서 위치 확인 후 방문하세요'));
-          badgeStyle  = done ? 'background:#E1F5EE;color:#0F6E56' : (oriLocked ? 'background:#f0efe8;color:#aaa' : (gpsOk ? '' : 'background:#f0efe8;color:#aaa'));
+          // 지오캐싱 점유 여부 체크
+          var claimInfo = isGeoExclusive() && !done ? claimedCPs[String(i)] : null;
+          var claimedByOtherR = claimInfo && claimInfo.userId !== userId;
+
+          statusClass = done ? 'status-done' : (claimedByOtherR ? 'status-claimed' : (oriLocked ? 'status-lock' : (gpsOk ? 'status-open' : 'status-lock')));
+          statusText  = done ? '완료' : (claimedByOtherR ? '🚫 점유됨' : (oriLocked ? '🔒 잠금' : (gpsOk ? '미션 대기' : '이동 중')));
+          desc        = done ? '미션 완료' : (claimedByOtherR ? (claimInfo.name + '님이 이미 점유') : (oriLocked ? '이전 CP 완료 후 위치가 공개됩니다' : (gpsOk ? '탭해서 미션 확인' : '지도에서 위치 확인 후 방문하세요')));
+          badgeStyle  = done ? 'background:#D1FAE5;color:#065F46' : (claimedByOtherR ? 'background:#f0efe8;color:#9CA3AF' : (oriLocked ? 'background:#f0efe8;color:#aaa' : (gpsOk ? '' : 'background:#f0efe8;color:#aaa')));
           if (isOriRandom && visitOrderMap[i]) {
             var orderNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
             var orderNum = visitOrderMap[i];
@@ -2246,6 +2293,57 @@
     }
 
     // ── 실시간 순위 리더보드 ──────────────────────────────
+    // ── CP 점유 현황 실시간 구독 (지오캐싱 전용) ─────────────
+    var claimedUnsubscribe = null;
+
+    function subscribeClaimedCPs() {
+      if (!isGeoExclusive() || !currentProgId) return;
+      if (claimedUnsubscribe) { claimedUnsubscribe(); claimedUnsubscribe = null; }
+      claimedUnsubscribe = db.collection('cpClaims').doc(currentProgId)
+        .onSnapshot(function(doc) {
+          claimedCPs = doc.exists ? (doc.data().claims || {}) : {};
+          updateMarkers();
+          renderCPList();
+        }, function(err) {
+          console.warn('cpClaims 구독 오류:', err);
+        });
+    }
+
+    // CP 점유 트랜잭션: 성공 시 callback(true), 이미 점유 시 callback(false, 점유자명)
+    function claimCP(cpIndex, callback) {
+      if (!isGeoExclusive()) { callback(true); return; }
+      var key = String(cpIndex);
+      var claimsRef = db.collection('cpClaims').doc(currentProgId);
+      db.runTransaction(function(tx) {
+        return tx.get(claimsRef).then(function(doc) {
+          var claims = doc.exists ? (doc.data().claims || {}) : {};
+          if (claims[key] && claims[key].userId !== userId) {
+            var err = new Error('already_claimed');
+            err.claimer = claims[key].name;
+            throw err;
+          }
+          if (!claims[key]) {
+            var update = {};
+            update['claims.' + key] = {
+              userId: userId,
+              name: userName,
+              at: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            tx.set(claimsRef, update, { merge: true });
+          }
+        });
+      }).then(function() {
+        callback(true);
+      }).catch(function(err) {
+        if (err.message === 'already_claimed') {
+          callback(false, err.claimer);
+        } else {
+          console.error('점유 트랜잭션 오류:', err);
+          callback(true); // 오류 시 허용 (UX 우선)
+        }
+      });
+    }
+
     var leaderboardUnsubscribe = null;
 
     function subscribeLeaderboard() {

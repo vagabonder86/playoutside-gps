@@ -373,7 +373,7 @@
               <div class="mode-option selected" data-mode="geocaching">
                 <div class="mode-option-icon">🗺️</div>
                 <div class="mode-option-name">지오캐싱</div>
-                <div class="mode-option-desc">전체 공개 또는 순차 공개, 자유 순서, 점수 경쟁</div>
+                <div class="mode-option-desc">전체/순차 공개 + 공유/점유 모드 선택 가능</div>
               </div>
               <div class="mode-option" data-mode="orienteering">
                 <div class="mode-option-icon">🧭</div>
@@ -430,6 +430,19 @@
               <div class="form-group">
                 <label>최소 완료 CP 수 (완주 조건)</label>
                 <input type="number" id="geo-min-cp" placeholder="예) 5" min="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>CP 점유 방식</label>
+                <select id="geo-exclusive">
+                  <option value="shared">공유 (여러 명 완료 가능)</option>
+                  <option value="exclusive">점유 (선착순 1명만 인정)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="opacity:0.6">예약</label>
+                <input type="text" disabled style="background:#f5f5f0;color:#aaa" placeholder="-">
               </div>
             </div>
           </div>
@@ -1079,6 +1092,7 @@
         hintPenalty: document.getElementById('geo-hint-penalty').value,
         wrongPenalty: document.getElementById('geo-wrong-penalty').value,
         reveal: document.getElementById('geo-reveal').value,
+        exclusive: document.getElementById('geo-exclusive').value,
         minCp: document.getElementById('geo-min-cp').value,
       };
     } else if (selectedMode === 'orienteering') {
@@ -1238,6 +1252,7 @@
     if (ms.hintPenalty !== undefined) document.getElementById('geo-hint-penalty').value  = ms.hintPenalty;
     if (ms.wrongPenalty!== undefined) document.getElementById('geo-wrong-penalty').value = ms.wrongPenalty;
     if (ms.reveal)                     document.getElementById('geo-reveal').value        = ms.reveal;
+    if (ms.exclusive)                  document.getElementById('geo-exclusive').value     = ms.exclusive;
     if (ms.minCp       !== undefined) document.getElementById('geo-min-cp').value        = ms.minCp;
 
     // 오리엔티어링 설정

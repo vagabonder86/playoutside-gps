@@ -739,9 +739,11 @@
       return false;
     }
 
-    // 지오캐싱 CP 점유 중복 불가 여부
+    // 지오캐싱 CP 점유 중복 불가 여부 (관리자 옵션)
     function isGeoExclusive() {
-      return currentProgMode === 'geocaching';
+      return currentProgMode === 'geocaching'
+          && currentModeSettings
+          && currentModeSettings.exclusive === 'exclusive';
     }
 
     var claimedCPs = {}; // { "cpIndex": { userId, name } } — 다른 참가자가 점유한 CP

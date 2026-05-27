@@ -869,6 +869,8 @@
         document.getElementById('score-total').textContent = totalNormalCPs;
         recomputeStartEndSame(); // 새 프로그램의 출발/도착 일치 여부 재계산
         visitOrderMap = {}; // 새 프로그램 진입 시 이전 방문 순서 맵 초기화
+        claimedCPs = {};    // 점유 데이터 초기화
+        if (claimedUnsubscribe) { claimedUnsubscribe(); claimedUnsubscribe = null; }
       }
 
       // 선택 화면 닫고 로그인 화면 표시

@@ -1619,21 +1619,103 @@
       });
     }
 
+    // ── 사용자 방향 (heading) 관리 ─────────────────────────
+    var userHeading = null;     // 0 = 북, 90 = 동, 180 = 남, 270 = 서
+    var lastGpsPos  = null;     // 이전 GPS 위치 (delta 계산용)
+    var compassHeading = null;  // DeviceOrientation 나침반
+
+    // 두 좌표 사이의 방향 계산 (단위: 도)
+    function calcHeading(lat1, lng1, lat2, lng2) {
+      var toRad = Math.PI / 180;
+      var φ1 = lat1 * toRad, φ2 = lat2 * toRad;
+      var Δλ = (lng2 - lng1) * toRad;
+      var y = Math.sin(Δλ) * Math.cos(φ2);
+      var x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+      return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    // 사용자 위치 마커 아이콘 (heading 있으면 화살표, 없으면 원)
+    function makeUserIcon() {
+      var isHikeCanoe = currentProgMode === 'hiking' || currentProgMode === 'canoe';
+      // GPS heading 우선, 없으면 나침반 사용
+      var heading = (userHeading !== null) ? userHeading : compassHeading;
+      if (!isHikeCanoe || heading === null) {
+        // 기본 파란 원 마커
+        return {
+          content: '<div style="width:16px;height:16px;border-radius:50%;background:#378ADD;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
+          anchor: new naver.maps.Point(8, 8)
+        };
+      }
+      // 하이킹/카누 — 방향 화살표 마커
+      return {
+        content:
+          '<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;transform:rotate(' + heading + 'deg);transform-origin:center center">' +
+            '<svg width="36" height="36" viewBox="0 0 36 36" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">' +
+              '<path d="M18 3 L30 30 L18 24 L6 30 Z" fill="#378ADD" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>' +
+            '</svg>' +
+          '</div>',
+        anchor: new naver.maps.Point(20, 20)
+      };
+    }
+
+    // 나침반(DeviceOrientation) 구독 — iOS는 권한 필요
+    function startCompassWatch() {
+      function handler(e) {
+        // webkitCompassHeading: iOS (이미 자북 보정)
+        // alpha: 안드로이드 (반대로 변환 필요)
+        var h = null;
+        if (typeof e.webkitCompassHeading === 'number') {
+          h = e.webkitCompassHeading;
+        } else if (e.alpha !== null && e.absolute) {
+          h = 360 - e.alpha;
+        }
+        if (h !== null) {
+          compassHeading = h;
+          if (userMarker) userMarker.setIcon(makeUserIcon());
+        }
+      }
+      // iOS 13+: 권한 요청
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(function(state) {
+          if (state === 'granted') window.addEventListener('deviceorientation', handler, true);
+        }).catch(function(){});
+      } else {
+        window.addEventListener('deviceorientationabsolute', handler, true);
+        window.addEventListener('deviceorientation', handler, true);
+      }
+    }
+
     // ── GPS 감지 ──────────────────────────────────────────
     function startGPSWatch() {
       if (!navigator.geolocation) return;
+      // 하이킹/카누 모드면 나침반도 함께 구독
+      if (currentProgMode === 'hiking' || currentProgMode === 'canoe') {
+        startCompassWatch();
+      }
       navigator.geolocation.watchPosition(function(pos) {
         var lat = pos.coords.latitude;
         var lng = pos.coords.longitude;
         var alt = pos.coords.altitude;
         var latlng = new naver.maps.LatLng(lat, lng);
+
+        // ── heading 갱신 ────────────────────────────────
+        if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.speed > 0.3) {
+          // GPS heading: 움직이고 있을 때만 신뢰 (speed > 0.3 m/s ≈ 1km/h)
+          userHeading = pos.coords.heading;
+        } else if (lastGpsPos) {
+          // GPS heading 없음 → 좌표 delta로 계산
+          var dist = getDistance(lastGpsPos.lat, lastGpsPos.lng, lat, lng);
+          if (dist > 3) { // 3m 이상 이동했을 때만 갱신 (지터 방지)
+            userHeading = calcHeading(lastGpsPos.lat, lastGpsPos.lng, lat, lng);
+          }
+        }
+        lastGpsPos = { lat: lat, lng: lng };
+
         if (userMarker) userMarker.setMap(null);
         userMarker = new naver.maps.Marker({
           position: latlng, map: map,
-          icon: {
-            content: '<div style="width:16px;height:16px;border-radius:50%;background:#378ADD;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
-            anchor: new naver.maps.Point(8, 8)
-          },
+          icon: makeUserIcon(),
           zIndex: 20
         });
 

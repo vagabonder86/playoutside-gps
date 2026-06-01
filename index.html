@@ -1180,6 +1180,12 @@
       userPhone = phone;
       userId    = name + '_' + phone;
 
+      // iOS 13+ 나침반 권한 요청 (사용자 제스처 시점에 호출되어야 함)
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().catch(function(){});
+      }
+
       var btn = document.getElementById('login-btn');
       btn.disabled = true;
       btn.textContent = '확인 중...';
@@ -1634,27 +1640,33 @@
       return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
-    // 사용자 위치 마커 아이콘 (heading 있으면 화살표, 없으면 원)
+    // 사용자 위치 마커 아이콘 (heading 있으면 방향 화살표, 없으면 원형 펄스)
     function makeUserIcon() {
-      var isHikeCanoe = currentProgMode === 'hiking' || currentProgMode === 'canoe';
       // GPS heading 우선, 없으면 나침반 사용
       var heading = (userHeading !== null) ? userHeading : compassHeading;
-      if (!isHikeCanoe || heading === null) {
-        // 기본 파란 원 마커
+      if (heading === null) {
+        // 방향 정보 없음 → 파란 원 + 흰 테두리 (조금 더 크게)
         return {
-          content: '<div style="width:16px;height:16px;border-radius:50%;background:#378ADD;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
-          anchor: new naver.maps.Point(8, 8)
+          content:
+            '<div style="position:relative;width:24px;height:24px">' +
+              '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:rgba(55,138,221,0.25)"></div>' +
+              '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#378ADD;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>' +
+            '</div>',
+          anchor: new naver.maps.Point(12, 12)
         };
       }
-      // 하이킹/카누 — 방향 화살표 마커
+      // 방향 화살표 마커 (모든 모드)
       return {
         content:
-          '<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;transform:rotate(' + heading + 'deg);transform-origin:center center">' +
-            '<svg width="36" height="36" viewBox="0 0 36 36" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">' +
-              '<path d="M18 3 L30 30 L18 24 L6 30 Z" fill="#378ADD" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>' +
+          '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;transform:rotate(' + heading + 'deg);transform-origin:center center">' +
+            '<svg width="40" height="40" viewBox="0 0 40 40" style="filter:drop-shadow(0 2px 5px rgba(0,0,0,0.4))">' +
+              // 방향 화살표 (뾰족한 위쪽 = 진행 방향)
+              '<path d="M20 3 L33 33 L20 26 L7 33 Z" fill="#378ADD" stroke="white" stroke-width="2.8" stroke-linejoin="round"/>' +
+              // 중앙 점
+              '<circle cx="20" cy="22" r="2.5" fill="white"/>' +
             '</svg>' +
           '</div>',
-        anchor: new naver.maps.Point(20, 20)
+        anchor: new naver.maps.Point(22, 22)
       };
     }
 
@@ -1689,10 +1701,8 @@
     // ── GPS 감지 ──────────────────────────────────────────
     function startGPSWatch() {
       if (!navigator.geolocation) return;
-      // 하이킹/카누 모드면 나침반도 함께 구독
-      if (currentProgMode === 'hiking' || currentProgMode === 'canoe') {
-        startCompassWatch();
-      }
+      // 모든 모드에서 나침반 구독 (정지 상태에서도 방향 표시)
+      startCompassWatch();
       navigator.geolocation.watchPosition(function(pos) {
         var lat = pos.coords.latitude;
         var lng = pos.coords.longitude;

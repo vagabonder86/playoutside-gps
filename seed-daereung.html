@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대관령 지오캐싱 프로그램 등록</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Apple SD Gothic Neo', sans-serif; background: #f5f5f0; color: #2c2c2a; padding: 40px 20px; min-height: 100vh; }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    .card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    h1 { font-size: 22px; color: #085041; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+    h2 { font-size: 15px; color: #1D9E75; margin: 18px 0 10px; padding-bottom: 8px; border-bottom: 0.5px solid #e0e0d8; }
+    .row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid #f0efe8; font-size: 13px; }
+    .row:last-child { border-bottom: none; }
+    .num { width: 28px; height: 28px; border-radius: 50%; background: #EEEDFE; color: #534AB7; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+    .num.s { background: #E1F5EE; color: #0F6E56; }
+    .num.f { background: #FAECE7; color: #712B13; }
+    .info { flex: 1; }
+    .info .name { font-weight: 600; }
+    .info .mission { font-size: 11px; color: #888; margin-top: 2px; line-height: 1.4; }
+    .info .coord { font-size: 10px; color: #aaa; margin-top: 2px; font-family: monospace; }
+    label { display: block; font-size: 12px; color: #888; margin: 12px 0 4px; font-weight: 500; }
+    input { width: 100%; padding: 10px 12px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 14px; }
+    .btn { display: block; width: 100%; padding: 14px; background: #1D9E75; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 16px; }
+    .btn:disabled { background: #aaa; }
+    .btn:hover { background: #0F6E56; }
+    .status { margin-top: 16px; padding: 12px 16px; border-radius: 10px; font-size: 13px; display: none; line-height: 1.6; }
+    .status.success { background: #E1F5EE; color: #0F6E56; }
+    .status.error { background: #FAECE7; color: #712B13; }
+    .login-box { display: block; }
+    .login-box.hidden { display: none; }
+    .seed-box { display: none; }
+    .seed-box.show { display: block; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>🗺 대관령 지오캐싱</h1>
+    <div class="sub">강원도 대관령 일대 15개 지점을 찾아가는 지오캐싱 프로그램입니다.</div>
+
+    <h2>📍 체크포인트 (15개)</h2>
+    <div id="cp-preview"></div>
+  </div>
+
+  <!-- 관리자 로그인 -->
+  <div class="card login-box" id="login-box">
+    <h2>관리자 로그인</h2>
+    <div class="sub" style="margin-bottom:0">프로그램을 Firestore에 추가하려면 관리자 계정으로 로그인하세요.</div>
+    <label>이메일</label>
+    <input type="email" id="email" placeholder="admin@example.com">
+    <label>비밀번호</label>
+    <input type="password" id="pw">
+    <button class="btn" id="login-btn">로그인</button>
+    <div class="status" id="login-status"></div>
+  </div>
+
+  <!-- 등록 -->
+  <div class="card seed-box" id="seed-box">
+    <h2>✅ 로그인됨 — 프로그램 등록</h2>
+    <div class="sub" id="user-email"></div>
+    <button class="btn" id="seed-btn">📤 대관령 지오캐싱 프로그램 추가하기</button>
+    <div class="status" id="seed-status"></div>
+  </div>
+
+</div>
+
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyDqONjVeI3ACN2ZgaOFkUMkkuTvsBMcok0",
+    authDomain: "playoutside-gps.firebaseapp.com",
+    projectId: "playoutside-gps",
+    storageBucket: "playoutside-gps.firebasestorage.app",
+    messagingSenderId: "915320760860",
+    appId: "1:915320760860:web:9fd2a60c59e8e2e7e0cdd9"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore();
+  var auth = firebase.auth();
+
+  // ── 대관령 지오캐싱 프로그램 데이터 ──────────────────────
+  var DAEREUNG_PROGRAM = {
+    name: '대관령 지오캐싱',
+    location: '강원도 평창군 대관령면',
+    date: '2026-06-18',
+    time: 120,
+    participants: 30,
+    manager: '플레이아웃사이드',
+    desc: '강원도 대관령 일대 15개 지점을 찾아가는 지오캐싱 프로그램. GPS를 이용해 각 캐시 위치를 탐색하고 인증하세요.',
+    mode: 'geocaching',
+    modeSettings: {
+      cpReveal: 'all',
+      sharing: 'shared',
+      scoring: 'point'
+    },
+    published: false,
+    ended: false,
+    cps: [
+      {
+        id: 'CP1', name: '대관령 CP1', type: 'normal',
+        lat: 37.7113770, lng: 128.7889243, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP2', name: '대관령 CP2', type: 'normal',
+        lat: 37.70972, lng: 128.78360, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP3', name: '대관령 CP3', type: 'normal',
+        lat: 37.7118205, lng: 128.7890168, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP4', name: '대관령 CP4', type: 'normal',
+        lat: 37.7099720, lng: 128.7886393, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP5', name: '대관령 CP5', type: 'normal',
+        lat: 37.70806, lng: 128.78324, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP6', name: '대관령 CP6', type: 'normal',
+        lat: 37.71370, lng: 128.78944, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP7', name: '대관령 CP7', type: 'normal',
+        lat: 37.70801, lng: 128.78347, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP8', name: '대관령 CP8', type: 'normal',
+        lat: 37.7108436, lng: 128.7888797, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP9', name: '대관령 CP9', type: 'normal',
+        lat: 37.7111086, lng: 128.7888934, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP10', name: '대관령 CP10', type: 'normal',
+        lat: 37.7101611, lng: 128.7884042, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP11', name: '대관령 CP11', type: 'normal',
+        lat: 37.71373, lng: 128.78861, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP12', name: '대관령 CP12', type: 'normal',
+        lat: 37.71305, lng: 128.78702, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP13', name: '대관령 CP13', type: 'normal',
+        lat: 37.70993, lng: 128.78343, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP14', name: '대관령 CP14', type: 'normal',
+        lat: 37.7120382, lng: 128.7887234, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      },
+      {
+        id: 'CP15', name: '대관령 CP15', type: 'normal',
+        lat: 37.7119123, lng: 128.7889212, radius: 30,
+        mission: '이 지점에서 캐시를 찾아 GPS 인증을 완료하세요.',
+        missionType: 'none', qrMode: 'gps',
+        answer: '', choices: null, hintImage: null
+      }
+    ]
+  };
+
+  // ── 미리보기 렌더 ────────────────────────────────────
+  function renderPreview() {
+    var html = '';
+    DAEREUNG_PROGRAM.cps.forEach(function(cp) {
+      var numClass = cp.type === 'start' ? 's' : cp.type === 'end' ? 'f' : '';
+      var displayId = cp.type === 'start' ? '출발' : cp.type === 'end' ? '도착' : cp.id;
+      html += '<div class="row">' +
+        '<div class="num ' + numClass + '">' + displayId + '</div>' +
+        '<div class="info">' +
+          '<div class="name">' + cp.name + '</div>' +
+          '<div class="mission">' + (cp.mission || '미션 없음') + '</div>' +
+          '<div class="coord">📍 ' + cp.lat + ', ' + cp.lng + '</div>' +
+        '</div>' +
+      '</div>';
+    });
+    document.getElementById('cp-preview').innerHTML = html;
+  }
+  renderPreview();
+
+  // ── 로그인 ───────────────────────────────────────────
+  auth.onAuthStateChanged(function(user) {
+    if (user) {
+      document.getElementById('login-box').classList.add('hidden');
+      document.getElementById('seed-box').classList.add('show');
+      document.getElementById('user-email').textContent = user.email;
+    } else {
+      document.getElementById('login-box').classList.remove('hidden');
+      document.getElementById('seed-box').classList.remove('show');
+    }
+  });
+
+  document.getElementById('login-btn').addEventListener('click', function() {
+    var email = document.getElementById('email').value.trim();
+    var pw    = document.getElementById('pw').value;
+    var status = document.getElementById('login-status');
+    if (!email || !pw) {
+      status.className = 'status error'; status.style.display = 'block';
+      status.textContent = '이메일과 비밀번호를 입력하세요.'; return;
+    }
+    var btn = this; btn.disabled = true; btn.textContent = '로그인 중...';
+    auth.signInWithEmailAndPassword(email, pw)
+      .then(function() { btn.disabled = false; btn.textContent = '로그인'; })
+      .catch(function(err) {
+        btn.disabled = false; btn.textContent = '로그인';
+        status.className = 'status error'; status.style.display = 'block';
+        status.textContent = '로그인 실패: ' + err.message;
+      });
+  });
+
+  // ── Firestore에 프로그램 추가 ─────────────────────────
+  document.getElementById('seed-btn').addEventListener('click', function() {
+    var btn = this; var status = document.getElementById('seed-status');
+    btn.disabled = true; btn.textContent = '등록 중...';
+    var data = Object.assign({}, DAEREUNG_PROGRAM, {
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    db.collection('programs').add(data).then(function(ref) {
+      btn.disabled = false; btn.textContent = '✅ 등록 완료!';
+      status.className = 'status success'; status.style.display = 'block';
+      status.innerHTML = '🎉 프로그램이 추가되었습니다!<br>' +
+        '<b>프로그램 ID:</b> ' + ref.id + '<br>' +
+        '관리자 페이지(<a href="admin.html">admin.html</a>)에서 확인하고 공개로 전환하세요.';
+    }).catch(function(err) {
+      btn.disabled = false; btn.textContent = '📤 대관령 지오캐싱 프로그램 추가하기';
+      status.className = 'status error'; status.style.display = 'block';
+      status.textContent = '등록 실패: ' + err.message;
+    });
+  });
+</script>
+</body>
+</html>

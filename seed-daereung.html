@@ -95,9 +95,13 @@
     desc: '강원도 대관령 일대 15개 지점을 찾아가는 지오캐싱 프로그램. GPS를 이용해 각 캐시 위치를 탐색하고 인증하세요.',
     mode: 'geocaching',
     modeSettings: {
-      cpReveal: 'all',
-      sharing: 'shared',
-      scoring: 'point'
+      baseScore: 10,
+      hint: 'yes',
+      hintPenalty: 3,
+      wrongPenalty: 1,
+      reveal: 'all',
+      exclusive: 'shared',
+      minCp: ''
     },
     published: false,
     ended: false,

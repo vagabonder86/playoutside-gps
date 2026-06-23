@@ -19,16 +19,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: #EEF9F4; color: #1a1a18; }
 
-    /* ── 헤더 ─────────────────────────────────────────────── */
-    header {
-      background: linear-gradient(120deg, #059669 0%, #10B981 100%);
-      color: white; padding: 14px 20px;
-      position: sticky; top: 0; z-index: 100;
-      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
-    }
-    header h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.03em; }
-    header p  { font-size: 12px; opacity: 0.82; margin-top: 2px; font-weight: 500; }
-
     /* ── 타이머 바 ──────────────────────────────────────────── */
     .timer-bar {
       background: #064E3B; color: white;
@@ -40,7 +30,7 @@
     /* ── 화면 ────────────────────────────────────────────────── */
     .screen { display: none; }
     .screen.active { display: block; }
-    #map { width: 100%; height: calc(100vh - 152px); }
+    #map { width: 100%; height: calc(100vh - 96px); }
 
     /* ── 하단 컨트롤 바 ─────────────────────────────────────── */
     .bottom-bar {
@@ -595,12 +585,6 @@
 
   <!-- GPS 알림 -->
   <div id="gps-alert"></div>
-
-  <!-- 헤더 -->
-  <header>
-    <h1>플레이아웃사이드 GPS 미션</h1>
-    <p id="header-sub">백련산 생태 탐험 · 2026</p>
-  </header>
 
   <!-- 타이머 바 -->
   <div class="timer-bar">
@@ -1229,7 +1213,6 @@
         : null;
 
       function startApp(existingData) {
-        document.getElementById('header-sub').textContent = name + '님 · ' + currentProgName;
         document.getElementById('login-overlay').style.display = 'none';
         document.getElementById('score-total').textContent = totalNormalCPs;
         // 기록 화면 헤더 업데이트

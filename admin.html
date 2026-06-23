@@ -658,16 +658,13 @@
 
               <label>힌트 이미지 URL <span style="font-weight:400;color:#aaa">(선택)</span></label>
               <input type="text" id="cp-hint-image-input" placeholder="https://...">
-              <label>좌표 <span style="font-weight:400;color:#aaa">(직접 입력 또는 지도 클릭)</span></label>
-              <div class="coord-row">
-                <input type="text" id="cp-lat-input" placeholder="위도 예) 37.5954">
-                <input type="text" id="cp-lng-input" placeholder="경도 예) 126.9349">
-              </div>
-              <button type="button" id="use-my-location-btn" class="btn btn-sm" style="width:100%;justify-content:center;margin-top:4px;color:#1D9E75;border-color:#b2e8d4">
+              <label>좌표 <span style="font-weight:400;color:#aaa">(위도, 경도 한 번에 입력)</span></label>
+              <input type="text" id="cp-coord-input" placeholder="예) 37.5954, 126.9349">
+              <button type="button" id="use-my-location-btn" class="btn btn-sm" style="width:100%;justify-content:center;margin-top:6px;color:#1D9E75;border-color:#b2e8d4">
                 <i class="ti ti-map-pin-filled"></i> 현재 위치를 좌표로 사용
               </button>
               <div style="font-size:11px;color:#aaa;margin-top:4px;margin-bottom:10px">
-                입력 후 Tab키를 누르면 지도에 바로 반영됩니다
+                📌 네이버/구글 지도에서 복사한 좌표를 그대로 붙여넣으세요 (Tab키 또는 클릭 외부)
               </div>
               <label>CP 유형</label>
               <select id="cp-type-input">
@@ -1644,19 +1641,37 @@
   function initCoordInputs() {
     if (coordInputsInitialized) return; // 중복 등록 방지
     coordInputsInitialized = true;
-    var latInput = document.getElementById('cp-lat-input');
-    var lngInput = document.getElementById('cp-lng-input');
+    var coordInput = document.getElementById('cp-coord-input');
+
+    // "37.5954, 126.9349" / "37.5954 126.9349" / "37.5954\t126.9349" 등 다양한 구분자 허용
+    function parseCoord(str) {
+      if (!str) return null;
+      // 쉼표·공백·탭·세미콜론·괄호 제거 후 숫자 두 개 추출
+      var nums = str.replace(/[()\[\]{}'"]/g, '').split(/[,;\s]+/).filter(Boolean).map(parseFloat);
+      if (nums.length < 2 || isNaN(nums[0]) || isNaN(nums[1])) return null;
+      // 한국 좌표 자동 정렬: 큰 값이 경도(126~131), 작은 값이 위도(33~39)
+      var a = nums[0], b = nums[1];
+      var lat = a, lng = b;
+      if (a > 100 && b < 50) { lat = b; lng = a; } // 사용자가 경도, 위도 순으로 입력한 경우 교정
+      return { lat: lat, lng: lng };
+    }
+
     function applyCoord() {
-      var lat = parseFloat(latInput.value);
-      var lng = parseFloat(lngInput.value);
-      if (isNaN(lat) || isNaN(lng) || selectedCPIndex === null) return;
-      cpData[selectedCPIndex].lat = lat;
-      cpData[selectedCPIndex].lng = lng;
-      adminMap.setCenter(new naver.maps.LatLng(lat, lng));
+      if (selectedCPIndex === null) return;
+      var parsed = parseCoord(coordInput.value.trim());
+      if (!parsed) return;
+      cpData[selectedCPIndex].lat = parsed.lat;
+      cpData[selectedCPIndex].lng = parsed.lng;
+      // 입력값을 정규화하여 다시 표시
+      coordInput.value = parsed.lat + ', ' + parsed.lng;
+      adminMap.setCenter(new naver.maps.LatLng(parsed.lat, parsed.lng));
       renderAdminMarkers();
     }
-    latInput.addEventListener('change', applyCoord);
-    lngInput.addEventListener('change', applyCoord);
+    coordInput.addEventListener('change', applyCoord);
+    // 붙여넣기 즉시 반영
+    coordInput.addEventListener('paste', function() {
+      setTimeout(applyCoord, 50);
+    });
 
     document.getElementById('use-my-location-btn').addEventListener('click', function() {
       if (selectedCPIndex === null) {
@@ -1671,8 +1686,7 @@
       navigator.geolocation.getCurrentPosition(function(pos) {
         var lat = parseFloat(pos.coords.latitude.toFixed(6));
         var lng = parseFloat(pos.coords.longitude.toFixed(6));
-        latInput.value = lat;
-        lngInput.value = lng;
+        coordInput.value = lat + ', ' + lng;
         applyCoord();
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-map-pin-filled"></i> 현재 위치를 좌표로 사용';
@@ -1932,8 +1946,7 @@
     // 텍스트 정답은 missionType이 text일 때만 채움 (choice/ox는 다른 위젯 사용)
     var _mt = cp.missionType || 'text';
     document.getElementById('cp-answer-input').value = (_mt === 'text') ? (cp.answer || '') : '';
-    document.getElementById('cp-lat-input').value = cp.lat;
-    document.getElementById('cp-lng-input').value = cp.lng;
+    document.getElementById('cp-coord-input').value = (cp.lat != null && cp.lng != null) ? (cp.lat + ', ' + cp.lng) : '';
     document.getElementById('cp-type-input').value = cp.type || 'normal';
     // 이름 필드: start/end는 고정값 표시 + 비활성화
     document.getElementById('cp-name-input').value = cp.name;
@@ -1957,8 +1970,15 @@
     cpData[selectedCPIndex].type        = document.getElementById('cp-type-input').value;
     cpData[selectedCPIndex].mission     = document.getElementById('cp-mission-input').value.trim();
     cpData[selectedCPIndex].hintImage   = document.getElementById('cp-hint-image-input').value.trim();
-    cpData[selectedCPIndex].lat         = parseFloat(document.getElementById('cp-lat-input').value);
-    cpData[selectedCPIndex].lng         = parseFloat(document.getElementById('cp-lng-input').value);
+    // 좌표는 'lat, lng' 형식 한 줄 입력에서 파싱
+    var _coordStr = document.getElementById('cp-coord-input').value.trim();
+    var _coordNums = _coordStr.replace(/[()\[\]{}'"]/g, '').split(/[,;\s]+/).filter(Boolean).map(parseFloat);
+    if (_coordNums.length >= 2 && !isNaN(_coordNums[0]) && !isNaN(_coordNums[1])) {
+      var _a = _coordNums[0], _b = _coordNums[1];
+      if (_a > 100 && _b < 50) { var _t = _a; _a = _b; _b = _t; }
+      cpData[selectedCPIndex].lat = _a;
+      cpData[selectedCPIndex].lng = _b;
+    }
     cpData[selectedCPIndex].missionType = mType;
     cpData[selectedCPIndex].qrMode      = document.getElementById('cp-qr-mode-input').value;
     if (mType === 'text') {

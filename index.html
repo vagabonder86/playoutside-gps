@@ -833,10 +833,10 @@
       }
 
       var modeColors = {
-        geocaching:   { bg:'#E1F5EE', color:'#0F6E56', name:'지오캐싱' },
-        orienteering: { bg:'#EEEDFE', color:'#534AB7', name:'오리엔티어링' },
-        hiking:       { bg:'#FAEEDA', color:'#633806', name:'하이킹' },
-        canoe:        { bg:'#E3F0FB', color:'#1B6CA8', name:'카누' }
+        geocaching:   { bg:'#E8EDD8', color:'#4B5A2C', name:'지오캐싱' },
+        orienteering: { bg:'#F7E3BC', color:'#8F5A0F', name:'오리엔티어링' },
+        hiking:       { bg:'#F3DFD2', color:'#8A4A32', name:'하이킹' },
+        canoe:        { bg:'#DCE8EC', color:'#3A6B7E', name:'카누' }
       };
 
       list.innerHTML = '';
@@ -2520,7 +2520,7 @@
       participants.slice(0, 15).forEach(function(p, rank) {
         var isMe = p._id === userId;
         var cpCount = (p.completedCPs || []).length;
-        var statusColor = p.status === 'finished' ? '#534AB7' : p.status === 'in-progress' ? '#1D9E75' : '#aaa';
+        var statusColor = p.status === 'finished' ? '#8F5A0F' : p.status === 'in-progress' ? '#4B5A2C' : '#aaa';
         var elapsed = '';
         if (p.finishedAt && p.startedAt) {
           var sd = p.startedAt.toDate ? p.startedAt.toDate() : new Date(p.startedAt);
@@ -2537,10 +2537,10 @@
         var medalTxt = rank < 3 ? 'white' : '#888';
         var item = document.createElement('div');
         item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin-bottom:6px;' +
-          (isMe ? 'background:#E1F5EE;border:1.5px solid #b2e8d4;' : 'background:white;border:1px solid #f0efe8;');
+          (isMe ? 'background:#FBF0D9;border:1.5px solid #E3B23C;' : 'background:white;border:1px solid #f0efe8;');
         item.innerHTML =
           '<div style="width:24px;height:24px;border-radius:50%;background:' + medalBg + ';color:' + medalTxt + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">' + (rank + 1) + '</div>' +
-          '<div style="flex:1;font-size:13px;font-weight:' + (isMe ? '700' : '500') + ';color:#1a1a18">' + (p.name || '-') + (isMe ? ' <span style="font-size:10px;color:#1D9E75;font-weight:400">(나)</span>' : '') + '</div>' +
+          '<div style="flex:1;font-size:13px;font-weight:' + (isMe ? '700' : '500') + ';color:#1a1a18">' + (p.name || '-') + (isMe ? ' <span style="font-size:10px;color:#8F5A0F;font-weight:400">(나)</span>' : '') + '</div>' +
           '<div style="font-size:12px;color:#aaa;margin-right:6px">' + cpCount + '<span style="font-size:10px">/' + totalNormalCPs + '</span></div>' +
           '<div style="font-size:11px;color:' + statusColor + ';font-weight:500;min-width:36px;text-align:right">' + elapsed + '</div>';
         list.appendChild(item);

@@ -18,16 +18,17 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --pine-950: #14281F;   /* 가장 어두운 파인 그린 */
-      --pine-900: #1E3A2F;
-      --pine-700: #2D6A4F;
-      --pine-500: #40916C;
-      --sand-bg:  #F6F3EB;   /* 웜 샌드 배경 */
-      --sand-line:#E9E2D0;
-      --sunset:   #FF6B35;   /* 선셋 오렌지 액센트 */
-      --sunset-2: #F7931E;
-      --ink:      #24211B;
-      --ink-soft: #8A8375;
+      /* 톰 소여의 모험 테마 — 보물지도 양피지 + 빈티지 우드 + 보물 골드 */
+      --pine-950: #2C1D12;   /* 다크 월넛 (오두막 나무) */
+      --pine-900: #45301F;   /* 새들 브라운 (가죽 표지) */
+      --pine-700: #6B4A2E;   /* 웜 브라운 */
+      --pine-500: #8A6844;   /* 라이트 우드 */
+      --sand-bg:  #F4EBD5;   /* 양피지 (보물지도 종이) */
+      --sand-line:#E2D4B4;
+      --sunset:   #D98E2B;   /* 보물 골드 액센트 */
+      --sunset-2: #C0761A;
+      --ink:      #2E241A;   /* 세피아 잉크 */
+      --ink-soft: #8F7F65;
     }
     body { font-family: 'Apple SD Gothic Neo', '맑은 고딕', sans-serif; background: var(--sand-bg); color: var(--ink); }
 
@@ -72,7 +73,7 @@
       font-size: 12px; font-weight: 700; color: var(--ink-soft);
       cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all .15s;
     }
-    .bb-record-btn.active { border-color: var(--sunset); color: var(--sunset); background: #FFF3EC; }
+    .bb-record-btn.active { border-color: var(--sunset); color: var(--sunset); background: #FBF0D9; }
     .bb-record-btn:active { background: #F3EEE2; }
     .bb-zoom-group {
       display: flex; align-items: center; gap: 0; flex-shrink: 0;
@@ -165,7 +166,7 @@
       background: linear-gradient(90deg, var(--sunset), var(--sunset-2));
       border-radius: 4px;
       transition: width .8s cubic-bezier(.2,.9,.3,1);
-      box-shadow: 0 0 12px rgba(255,107,53,0.5);
+      box-shadow: 0 0 12px rgba(217,142,43,0.5);
       width: 0%;
     }
 
@@ -186,7 +187,7 @@
       transition: transform .15s, box-shadow .15s;
       box-shadow: 0 2px 8px rgba(30,58,47,0.05);
     }
-    .cp-item:active { transform: scale(0.97); box-shadow: 0 0 0 3px rgba(255,107,53,0.2); border-color: var(--sunset); }
+    .cp-item:active { transform: scale(0.97); box-shadow: 0 0 0 3px rgba(217,142,43,0.25); border-color: var(--sunset); }
     .cp-item.done { background: #F2F7F1; border-color: #CBDFCB; }
 
     /* CP 배지 */
@@ -203,7 +204,7 @@
     /* 상태 뱃지 */
     .cp-status { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
     .status-lock    { background: #F0EBDF; color: #A79F8D; }
-    .status-open    { background: #FFE8DC; color: #C2410C; }   /* 🎯 GO! 선셋 — 행동 필요 */
+    .status-open    { background: #F7E3BC; color: #8F5A0F; }   /* 🎯 GO! 보물 골드 — 행동 필요 */
     .status-done    { background: #DDEBD9; color: #2D5A3D; }   /* ✅ 완료 */
     .status-claimed { background: #FEE2E2; color: #991B1B; }   /* 🚫 점유됨 */
 
@@ -215,7 +216,7 @@
       color: white; padding: 13px 24px; border-radius: 50px;
       font-size: 14px; font-weight: 700;
       display: none; text-align: center; white-space: nowrap;
-      box-shadow: 0 6px 20px rgba(255,107,53,0.45);
+      box-shadow: 0 6px 20px rgba(217,142,43,0.45);
     }
 
     /* ── 오버레이 공통 ───────────────────────────────────────── */
@@ -237,7 +238,7 @@
       outline: none; transition: border-color .15s;
       font-family: inherit;
     }
-    .overlay-box input:focus { border-color: var(--sunset); box-shadow: 0 0 0 3px rgba(255,107,53,0.14); }
+    .overlay-box input:focus { border-color: var(--sunset); box-shadow: 0 0 0 3px rgba(217,142,43,0.16); }
 
     /* 주요 버튼 */
     .btn-green {
@@ -245,11 +246,11 @@
       background: linear-gradient(135deg, var(--sunset), var(--sunset-2));
       color: white; border: none; border-radius: 14px;
       font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 4px;
-      box-shadow: 0 4px 16px rgba(255,107,53,0.35);
+      box-shadow: 0 4px 16px rgba(217,142,43,0.38);
       letter-spacing: -0.01em; transition: all .15s;
       font-family: inherit;
     }
-    .btn-green:active { transform: scale(0.98); background: #E05A2B; box-shadow: none; }
+    .btn-green:active { transform: scale(0.98); background: #A96518; box-shadow: none; }
     .btn-gray {
       width: 100%; padding: 13px;
       background: #F9FAFB; color: #6B7280;
@@ -315,7 +316,7 @@
       content: ''; position: fixed;
       top: -80px; right: -60px; width: 300px; height: 300px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,107,53,0.18) 0%, rgba(255,107,53,0) 70%);
+      background: radial-gradient(circle, rgba(217,142,43,0.22) 0%, rgba(217,142,43,0) 70%);
       pointer-events: none;
     }
 
@@ -367,9 +368,9 @@
     <div class="sel-header">
       <div class="sel-logo"><img src="logo.png" alt="플레이아웃사이드"></div>
       <div class="sel-title">플레이아웃사이드</div>
-      <div class="sel-subtitle">🎯 참여할 어드벤처를 선택하세요!</div>
+      <div class="sel-subtitle">🛶 참여할 모험을 선택하세요!</div>
     </div>
-    <div class="sel-section-title">🏃 지금 진행 중인 어드벤처</div>
+    <div class="sel-section-title">🏕️ 지금 진행 중인 모험</div>
     <div class="sel-list" id="sel-list">
       <div class="sel-empty">
         <div class="sel-empty-icon">⏳</div>
@@ -513,10 +514,10 @@
       color: white; font-size: 15px; font-weight: 800; cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 6px;
       -webkit-tap-highlight-color: transparent;
-      box-shadow: 0 4px 14px rgba(255,107,53,0.35);
+      box-shadow: 0 4px 14px rgba(217,142,43,0.38);
       transition: all .15s; font-family: inherit;
     }
-    .gps-btn-primary:hover { background: #E05A2B; }
+    .gps-btn-primary:hover { background: #A96518; }
     .gps-btn-primary:active { transform: scale(0.97); box-shadow: none; }
     .gps-btn-ghost {
       padding: 12px; border-radius: 12px; border: none; background: none;
@@ -531,12 +532,12 @@
     <div class="overlay-box">
       <div style="font-size:40px;text-align:center;margin-bottom:10px">🗺️</div>
       <h2 style="text-align:center">미션 시작!</h2>
-      <p style="text-align:center">이름과 전화번호 뒷자리를 입력하고<br>모험을 시작하세요 🚀</p>
+      <p style="text-align:center">이름과 전화번호 뒷자리를 입력하고<br>톰 소여처럼 모험을 떠나보세요 🛶</p>
       <label>이름</label>
       <input id="input-name" type="text" placeholder="홍길동">
       <label>전화번호 뒷자리 4자리</label>
       <input id="input-phone" type="text" placeholder="1234" maxlength="4" inputmode="numeric">
-      <button class="btn-green" id="login-btn">🚀 시작하기</button>
+      <button class="btn-green" id="login-btn">⚡ 모험 시작!</button>
     </div>
   </div>
 
@@ -691,7 +692,7 @@
 
     <!-- CP 목록 -->
     <div class="rec-section">
-      <div class="rec-section-title">📍 체크포인트</div>
+      <div class="rec-section-title">🗺️ 보물 지도</div>
       <div id="cp-list"></div>
     </div>
     <!-- 실시간 순위 -->
@@ -719,7 +720,7 @@
 
     // ── 기본 CP (Firestore 읽기 실패 시 폴백) ─────────────
     var DEFAULT_CHECKPOINTS = [
-      { id:'S',   name:'출발 지점', lat:37.594798, lng:126.935307, color:'#2D6A4F', mission:null, answer:null, type:'start', radius:30 },
+      { id:'S',   name:'출발 지점', lat:37.594798, lng:126.935307, color:'#556B2F', mission:null, answer:null, type:'start', radius:30 },
       { id:'CP1', name:'CP1', lat:37.596057, lng:126.932757, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'1', type:'normal' },
       { id:'CP2', name:'CP2', lat:37.59704,  lng:126.934272, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'2', type:'normal' },
       { id:'CP3', name:'CP3', lat:37.595289, lng:126.934993, color:'#534AB7', mission:'미션 내용을 입력하세요', answer:'3', type:'normal' },
@@ -890,7 +891,7 @@
             name:      cp.type === 'start' ? '출발 지점' : cp.type === 'end' ? '도착 지점' : cp.name,
             lat:       cp.lat,
             lng:       cp.lng,
-            color:     cp.type === 'start' ? '#2D6A4F' : cp.type === 'end' ? '#E05A2B' : '#3E5C76',
+            color:     cp.type === 'start' ? '#556B2F' : cp.type === 'end' ? '#B3541E' : '#2E6E8E',
             mission:     cp.mission || null,
             answer:      cp.answer || null,
             hintImage:   cp.hintImage || null,
@@ -1584,7 +1585,7 @@
       gpxPolyline = new naver.maps.Polyline({
         map: map,
         path: path,
-        strokeColor: '#FF6B35',
+        strokeColor: '#B3541E',
         strokeWeight: 5,
         strokeOpacity: 0.8,
         strokeStyle: 'solid',
@@ -1603,7 +1604,7 @@
       var done = completedCPs.has(i);
       // 지오캐싱: 다른 참가자가 점유한 CP는 회색 마커
       var claimedByOther = isGeoExclusive() && !done && claimedCPs[String(i)] && claimedCPs[String(i)].userId !== userId;
-      var bg = done ? '#2D6A4F' : (claimedByOther ? '#9CA3AF' : cp.color);
+      var bg = done ? '#556B2F' : (claimedByOther ? '#9CA3AF' : cp.color);
       var size = (cp.type === 'start' || cp.type === 'end') ? '38px' : '32px';
       var orderNums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'];
       var visitNum = visitOrderMap[i];
@@ -1980,7 +1981,7 @@
               b.style.background = 'white'; b.style.borderColor = '#e0e0d8'; b.style.color = '#2c2c2a';
             });
             btn.classList.add('selected');
-            btn.style.background = '#FFF3EC'; btn.style.borderColor = '#FF6B35'; btn.style.color = '#C2410C';
+            btn.style.background = '#FBF0D9'; btn.style.borderColor = '#D98E2B'; btn.style.color = '#8F5A0F';
           });
           cl.appendChild(btn);
         });
@@ -2006,7 +2007,7 @@
           b.style.background = 'white'; b.style.borderColor = '#e0e0d8';
         });
         this.classList.add('selected');
-        this.style.background = '#FFF3EC'; this.style.borderColor = '#FF6B35';
+        this.style.background = '#FBF0D9'; this.style.borderColor = '#D98E2B';
       });
     });
 

@@ -25,7 +25,7 @@
       --pine-500: #B3C289;   /* 페일 올리브 */
       --sand-bg:  #FBF3DC;   /* 화사한 크림 캔버스 */
       --sand-line:#EFDFB4;
-      --sunset:   #E3B23C;   /* 밝은 머스타드 옐로우 배지 액센트 */
+      --sunset:   #E3B23C;   /* 밝은 머스타드 옐로우 액센트 */
       --sunset-2: #CC9A20;
       --ink:      #4A3B29;   /* 소프트 브라운 잉크 */
       --ink-soft: #A8977C;
@@ -191,7 +191,7 @@
     .cp-item:active { transform: scale(0.97); box-shadow: 0 0 0 3px rgba(217,142,43,0.25); border-color: var(--sunset); }
     .cp-item.done { background: #F2F7F1; border-color: #CBDFCB; }
 
-    /* CP 배지 */
+    /* CP 아이콘 */
     .cp-badge {
       width: 40px; height: 40px; border-radius: 12px;
       background: var(--pine-900); color: #F5F0E4;
@@ -369,9 +369,9 @@
     <div class="sel-header">
       <div class="sel-logo"><img src="logo.png" alt="플레이아웃사이드"></div>
       <div class="sel-title">플레이아웃사이드</div>
-      <div class="sel-subtitle">🧭 참여할 캠프를 선택하세요!</div>
+      <div class="sel-subtitle">🧭 참여할 프로그램을 선택하세요!</div>
     </div>
-    <div class="sel-section-title">🏕️ 지금 진행 중인 캠프</div>
+    <div class="sel-section-title">🏕️ 지금 진행 중인 프로그램</div>
     <div class="sel-list" id="sel-list">
       <div class="sel-empty">
         <div class="sel-empty-icon">⏳</div>
@@ -533,12 +533,12 @@
     <div class="overlay-box">
       <div style="font-size:40px;text-align:center;margin-bottom:10px">🗺️</div>
       <h2 style="text-align:center">미션 시작!</h2>
-      <p style="text-align:center">이름과 전화번호 뒷자리를 입력하고<br>스카우트 캠프로 떠나는 모험 🧭</p>
+      <p style="text-align:center">이름과 전화번호 뒷자리를 입력하고<br>모험을 떠나보세요 🧭</p>
       <label>이름</label>
       <input id="input-name" type="text" placeholder="홍길동">
       <label>전화번호 뒷자리 4자리</label>
       <input id="input-phone" type="text" placeholder="1234" maxlength="4" inputmode="numeric">
-      <button class="btn-green" id="login-btn">🎖️ 캠프 시작!</button>
+      <button class="btn-green" id="login-btn">🚀 시작하기</button>
     </div>
   </div>
 
@@ -693,7 +693,7 @@
 
     <!-- CP 목록 -->
     <div class="rec-section">
-      <div class="rec-section-title">🎖️ 미션 배지</div>
+      <div class="rec-section-title">📍 체크포인트</div>
       <div id="cp-list"></div>
     </div>
     <!-- 실시간 순위 -->

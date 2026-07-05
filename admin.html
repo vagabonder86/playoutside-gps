@@ -2564,7 +2564,7 @@
   function showQRModal(progId) {
     var prog = programs.find(function(p) { return p.id === progId; });
     if (!prog) return;
-    var url = 'https://play.playoutside.co.kr?prog=' + progId;
+    var url = 'https://play.playoutside.co.kr/?prog=' + progId;
     var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
     document.getElementById('qr-modal-name').textContent = prog.name;
     document.getElementById('qr-image').src = qrUrl;
